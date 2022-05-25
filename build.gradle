@@ -1,0 +1,20 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.5.30'
+    id 'org.jetbrains.kotlin.plugin.serialization' version '1.5.30'
+    id 'net.mamoe.mirai-console' version '2.9.2'
+}
+
+group = 'bot.music.whiter'
+version = '0.1'
+
+repositories {
+    maven { url 'https://www.jitpack.io' }
+    maven { url 'https://maven.aliyun.com/repository/public' }
+    mavenLocal {"D:/Data/maven/repository" }
+    mavenCentral()
+}
+
+dependencies {
+    // implementation 'com.github.whiterasbk:mider:beta0.9'
+    implementation fileTree(dir: 'libs', includes: ['*.jar'])
+}
