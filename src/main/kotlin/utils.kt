@@ -66,6 +66,7 @@ fun midi2mp3Stream(USE_VARIABLE_BITRATE: Boolean = false, GOOD_QUALITY_BITRATE: 
         bytesWritten = encoder.encodeBuffer(inputBuffer, 0, bytesRead, outputBuffer)
         mp3.write(outputBuffer, 0, bytesWritten)
     }
+
     encoder.close()
     return ByteArrayInputStream(mp3.toByteArray())
 }
