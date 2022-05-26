@@ -124,10 +124,8 @@ private fun toNote(str: String, defaultPitch: Int = 4): Note {
                 note.root_note = char.uppercase(Locale.getDefault())
                 note.num = defaultPitch + 1 // 5
             }
-            '$', '#' -> {
-                if (char == '$') note.bos = "b"
-                else note.bos = "#"
-            }
+            '$' -> note.bos = "b"
+            '#' -> note.bos = "#"
             in '0'..'9' -> note.num = char.code - 48
             '+' -> note.longer()
             '-' -> note.shorter()
