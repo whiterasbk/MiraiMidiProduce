@@ -103,9 +103,10 @@ object Config : AutoSavePluginConfig("config") {
     val uploadSize by value(1153433L)
     val help by value("""
 命令格式:
->bpm;mode>音名序列|简谱序列
+>bpm;mode;pitch>音名序列|简谱序列
 bpm: 速度, 必选, 格式是: 数字+b, 如 120b, 默认可以用 g 代替
 mode: 调式, 可选, 格式是(b/#)调式名, 如Cminor, -Emaj
+pitch: 音域(音高), 可选, 默认为 4
 
 示例: 
 >g>1155665  4433221  5544332  5544332
