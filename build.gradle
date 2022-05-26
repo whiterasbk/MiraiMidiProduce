@@ -16,5 +16,5 @@ repositories {
 dependencies {
 //    implementation fileTree(dir: 'libs', includes: ['*.jar'])
     implementation 'com.github.nwaldispuehl:java-lame:v3.98.4'
-    implementation 'com.github.whiterasbk:mider:beta0.9.1'
+    implementation 'com.github.whiterasbk:mider:kbeta0.9.1'
 }
