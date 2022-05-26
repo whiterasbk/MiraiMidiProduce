@@ -42,7 +42,7 @@ object MidiProduce : KotlinPlugin(
     }
 
     private suspend fun GroupMessageEvent.generate() {
-        matchRegex(">((g|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?)>[^>]+") { msg ->
+        matchRegex(Regex(">((g|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|wex&au)?)>[^>]+")) { msg ->
             var arrowCount = 0
             var availCount = 0
             var defaultBmp = 80
@@ -65,6 +65,8 @@ object MidiProduce : KotlinPlugin(
                     mode = it
                 } else if (it.matches(Regex("\\d"))) {
                     defaultPitch = it.toInt()
+                } else if (it.matches(Regex("vex|wex&au"))) {
+                    // todo 渲染乐谱
                 }
             }
 
