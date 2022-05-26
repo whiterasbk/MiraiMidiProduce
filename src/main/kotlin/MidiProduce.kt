@@ -71,7 +71,7 @@ object MidiProduce : KotlinPlugin(
             val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
                 bpm = defaultBmp
 
-                if (noteList.matches(Regex("[0-9.\\s-+*/|]+"))) {
+                if (noteList.matches(Regex("[0-9.\\s-+*/|↑↓i!#b&]+"))) {
                     if (defaultPitch != 4) pitch = defaultPitch.toByte()
                     ifUseMode(mode) { parseInt(noteList.replace(Regex("( {2}| \\| )"), "0")) }
                 } else {
