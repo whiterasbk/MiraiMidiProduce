@@ -72,8 +72,12 @@ object MidiProduce : KotlinPlugin(
                 bpm = defaultBmp
 
                 if (noteList.matches(Regex("[0-9.\\s-+*/|↑↓i!#b&]+"))) {
-                    if (defaultPitch != 4) pitch = defaultPitch.toByte()
-                    ifUseMode(mode) { parseInt(noteList.replace(Regex("( {2}| \\| )"), "0")) }
+                    if (noteList.trim().matches(Regex("b+"))) {
+                        ifUseMode(mode) { !toMiderNoteList(noteList, defaultPitch) }
+                    } else {
+                        if (defaultPitch != 4) pitch = defaultPitch.toByte()
+                        ifUseMode(mode) { parseInt(noteList.replace(Regex("( {2}| \\| )"), "0")) }
+                    }
                 } else {
                     ifUseMode(mode) { !toMiderNoteList(noteList, defaultPitch) }
                 }
