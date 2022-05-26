@@ -2,7 +2,7 @@ package bot.music.whiter
 
 import java.util.*
 
-fun toMiderNoteList(str: String): String {
+fun toMiderNoteList(str: String, defaultPitch: Int = 4): String {
     var list = mutableListOf<Note>()
     val stack = MStack<Char>()
     var cha = str + "a"
@@ -33,7 +33,7 @@ fun toMiderNoteList(str: String): String {
                         last_note = nc
                         list.add(nc)
                     } else {
-                        val n = toNote(r.reversed())
+                        val n = toNote(r.reversed(), defaultPitch)
                         last_note = n
                         list.add(n)
                     }
@@ -63,7 +63,7 @@ fun toMiderNoteList(str: String): String {
                 if (r.reversed()[0].toString().matches(note_patten_regex)) {
                     // println(r.reversed())
                     // println(">>>>$it>" + r.reversed())
-                    val note = toNote(r.reversed())
+                    val note = toNote(r.reversed(), defaultPitch)
                     list.add(note)
                     last_note = note
                 } else {
@@ -129,18 +129,18 @@ private fun convertPrevious(str: String, last: Note):Note {
     return nc
 }
 
-private fun toNote(str: String):Note {
+private fun toNote(str: String, defaultPitch: Int = 4) : Note {
 
-    var note = Note("")
+    val note = Note("")
 
     str.forEach {
         val char = it.toString()
         if (char.matches(Regex("[a-g]"))) {
             note.root_note = char.uppercase(Locale.getDefault())
-            note.num = 4
+            note.num = defaultPitch
         } else if (char.matches(Regex("[A-G]"))) {
             note.root_note = char.uppercase(Locale.getDefault())
-            note.num = 5
+            note.num = defaultPitch + 1 // 5
         } else if (char.matches(Regex("[$#]"))) {
             when (it) {
                 '$' -> note.bos = "b"

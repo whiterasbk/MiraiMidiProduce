@@ -9,6 +9,7 @@ import net.mamoe.mirai.event.globalEventChannel
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
+import whiter.music.mider.dsl.MiderDSL
 
 object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
@@ -41,11 +42,11 @@ object MidiProduce : KotlinPlugin(
     }
 
     private suspend fun GroupMessageEvent.generate() {
-        matchRegex(">((g|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?)>.*\\s*") { msg ->
+        matchRegex(">((g|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?)>[^>]+") { msg ->
             var arrowCount = 0
             var availCount = 0
             var defaultBmp = 80
-            var defaultPitch: Byte = 4
+            var defaultPitch = 4
             var mode = ""
 
             msg.forEach {
@@ -54,7 +55,7 @@ object MidiProduce : KotlinPlugin(
                 availCount ++
             }
 
-            val noteList = msg.substring(availCount, msg.length)
+            val noteList = msg.substring(availCount, msg.length)//.replace(Regex("\\s*"), "")
             val configPart = msg.substring(0, availCount).replace(">", "").split(";")
 
             configPart.forEach {
@@ -63,19 +64,19 @@ object MidiProduce : KotlinPlugin(
                 } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
                     mode = it
                 } else if (it.matches(Regex("\\d"))) {
-                    defaultPitch = it.toByte()
+                    defaultPitch = it.toInt()
                 }
             }
 
             val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
                 bpm = defaultBmp
-                if (defaultPitch != 4.toByte()) pitch = defaultPitch
 
-                if (mode.isNotBlank()) {
-                    useMode(mode) {
-                        !toMiderNoteList(noteList)
-                    }
-                } else !toMiderNoteList(noteList)
+                if (noteList.matches(Regex("[0-9.\\s-+*/|]+"))) {
+                    if (defaultPitch != 4) pitch = defaultPitch.toByte()
+                    ifUseMode(mode) { parseInt(noteList.replace(Regex("( {2}| \\| )"), "0")) }
+                } else {
+                    ifUseMode(mode) { !toMiderNoteList(noteList, defaultPitch) }
+                }
             }
 
             if (stream.available() > Config.uploadSize) {
@@ -87,6 +88,14 @@ object MidiProduce : KotlinPlugin(
             }
         }
     }
+
+    private fun MiderDSL.ifUseMode(mode: String, block: MiderDSL.()-> Unit) {
+        if (mode.isNotBlank()) {
+            useMode(mode) {
+                block()
+            }
+        } else block()
+    }
 }
 
 object Config : AutoSavePluginConfig("config") {
@@ -94,10 +103,16 @@ object Config : AutoSavePluginConfig("config") {
     val uploadSize by value(1153433L)
     val help by value("""
 命令格式:
->bpm;mode>音符序列
+>bpm;mode>音名序列|简谱序列
 bpm: 速度, 必选, 格式是: 数字+b, 如 120b, 默认可以用 g 代替
 mode: 调式, 可选, 格式是(b/#)调式名, 如Cminor, -Emaj
 
+示例: 
+>g>1155665  4433221  5544332  5544332
+等同于
+>g>ccggaag+ffeeddc+ggffeed+ggffeed
+如命令后的字符仅由数字和+-*/.|空格回车这8种符号组成则判定为简谱序列
+如果是音名序列则以下规则生效
 a~g: A4~G4
 A~G: A5~G5
 0-9: 手动修改音域
@@ -110,6 +125,7 @@ A~G: A5~G5
  ~ : 克隆上一个音符
  ^ : 克隆上一个音符, 并升高1度
  v : 克隆上一个音符, 并降低1度
++-.这三个符号对简谱序列也生效, 简谱序列暂未支持b和#
 类似的用法还有m-w, n-u, i-!, q-p, s-z,升高或降低度数在^-v的基础上逐步递增或递减
-    """.trim())
+""".trim())
 }
