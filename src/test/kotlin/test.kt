@@ -5,5 +5,12 @@ import whiter.music.mider.practise.absolutepitch.practise1
 
 
 fun main(args: Array<String>) {
-    practise1()
+    play {
+//        !toMiderNoteList("F+^B\$C6GFG CE\$")
+//        debug()
+
+        toMiderNoteListv2("gE+(=EgDD)Oo~~|A1:A2:A3:A4 (a) ").forEach(::println)
+
+//        note().code
+    }
 }

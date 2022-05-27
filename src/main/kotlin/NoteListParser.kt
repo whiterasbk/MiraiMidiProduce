@@ -1,6 +1,261 @@
 package bot.music.whiter
 
+import net.mamoe.mirai.console.util.cast
+import whiter.music.mider.dsl.MiderDSL
+import java.time.Duration
 import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.math.pow
+
+fun toMiderNoteListv2(seq: String, pitch: Int = 4): List<InMusicScore> {
+    val list = mutableListOf<InMusicScore>()
+    val doAfter = mutableListOf<()->Unit>()
+    seq.forEachIndexed { index, char ->
+
+        when (char) {
+
+            '(' -> {
+                if (seq[index + 1] == ':') {
+                    return@forEachIndexed
+                }
+            }
+
+            in 'a'..'g' -> {
+                list += _Note(char, pitch = pitch)
+            }
+
+            in 'A'..'G' -> {
+                list += _Note(char, pitch = pitch + 1)
+            }
+
+            'O' -> {
+                doAfter.clear()
+                list += Rest().let { it.duration.double; it }
+            }
+
+            'o' -> {
+                doAfter.clear()
+                list += Rest()
+            }
+
+            '~' -> {
+                list += list.last().clone()
+            }
+
+            '^' -> {
+                if (list.last() is _Note) {
+                    list += list.last().clone().cast<_Note>().upperNoteName()
+                }
+            }
+
+            'v' -> {
+                if (list.last() is _Note) {
+                    list += list.last().clone().cast<_Note>().lowerNoteName()
+                }
+            }
+
+            in '0'..'9' -> {
+                if (list.last() is IHasPitch)
+                    list.last().cast<IHasPitch>().pitch = char.code - 48
+                else if (list.last() is Chord)
+                    list.last().cast<Chord>().notes.last().pitch = char.code - 48
+            }
+
+            '#' -> {
+                doAfter += {
+                    (list.last() as? IHasPitch)?.sharp()
+                }
+            }
+
+            '&' -> {
+                doAfter += {
+                    if (list.last() is _Note)
+                        list.last().cast<_Note>().isNature = true
+                }
+            }
+
+            '$' -> {
+                doAfter += {
+                    if (list.last() is _Note)
+                        list.last().cast<_Note>().flap()
+                }
+            }
+
+            '\'' -> { if (list.last() is _Note) list.last().cast<_Note>().flap() }
+
+            ':' -> {
+                val chord: Chord = if (list.last() is _Note) {
+                    val c = Chord(list.removeLast().cast())
+                    list += c
+                    c
+                } else if (list.last() is Chord) {
+                    list.last().cast()
+                } else throw Exception("build chord failed: unsupported type: ${list.last()}")
+
+                doAfter += {
+                    chord += list.removeLast().cast()
+                }
+            }
+
+            '+' -> {
+                if (list.last() is _Note || list.last() is Rest)
+                    list.last().duration.double
+            }
+
+            '-' -> {
+                if (list.last() is _Note || list.last() is Rest)
+                    list.last().duration.halve
+            }
+
+            '.' -> {
+                if (list.last() is _Note || list.last() is Rest)
+                    list.last().duration.point
+            }
+        }
+
+        when(char) {
+            in "abcdefgABCDEFG~^vmwnui!pqsz" -> {
+                doAfter.asReversed().forEach { it() }
+                doAfter.clear()
+            }
+        }
+
+    }
+
+    return list
+}
+
+
+interface InMusicScore: Cloneable {
+    val duration: DurationDescribe
+    public override fun clone(): InMusicScore
+
+    class DurationDescribe (
+        var bar: Int = 0, // 符杆数, 默认为 0 也就是 四分音符
+        var dot: Int = 0 // 附点数
+    ): Cloneable {
+
+        val point: DurationDescribe get() {
+            dot ++
+            return this
+        }
+
+        val halve: DurationDescribe get() {
+            bar --
+            return this
+        }
+
+        val double: DurationDescribe get() {
+            bar ++
+            return this
+        }
+
+        public override fun clone(): DurationDescribe {
+            return DurationDescribe(bar, dot)
+        }
+
+        override fun toString(): String {
+            return (.25 * 2.0.pow(bar) * 1.5.pow(dot)).toString()
+        }
+    }
+}
+
+private interface IHasPitch {
+    var pitch: Int
+    var code: Int
+
+    operator fun plusAssign(addPitch: Int) {
+        code += addPitch * 12
+    }
+
+    operator fun minusAssign(addPitch: Int) {
+        code -= addPitch * 12
+    }
+
+    fun sharp(times: Int = 1) {
+        code += times
+    }
+
+    fun flap(times: Int = 1) {
+        code -= times
+    }
+
+}
+
+private class Chord(vararg firstNotes: _Note) : InMusicScore {
+
+    init {
+        if (firstNotes.isEmpty()) throw Exception("a chord needs notes to buildup")
+    }
+
+    val notes = firstNotes.toMutableList()
+    val rootNote get() = notes[0]
+    val secondNote get() = notes[1]
+    val thirdNote get() = notes[2]
+    val forthNote get() = notes[3]
+
+    override val duration: InMusicScore.DurationDescribe = rootNote.duration
+
+    override fun clone(): Chord {
+        val cloneNotes = mutableListOf<_Note>()
+        notes.forEach {
+            cloneNotes += it.clone()
+        }
+
+        return Chord(*cloneNotes.toTypedArray())
+    }
+
+    operator fun plusAssign(note: _Note) {
+        notes += note
+    }
+
+    override fun toString(): String {
+        return "Chord: " + notes.joinToString(" ")
+    }
+}
+
+private class Rest(override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe()) : InMusicScore {
+    override fun clone(): Rest {
+        return Rest(duration.clone())
+    }
+
+    override fun toString(): String = "[Rest|$duration]"
+}
+
+private class _Note(
+    override var code: Int,
+    override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(),
+    val velocity: Int = 100,
+    var isNature: Boolean = false // 是否添加了还原符号
+) : InMusicScore, IHasPitch {
+
+    constructor(name: String, pitch: Int = 4, duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(), velocity: Int = 100)
+            : this(noteBaseOffset (name) + (pitch + 1) * 12, duration, velocity)
+    constructor(name: Char, pitch: Int = 4, duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(), velocity: Int = 100)
+            : this(name.uppercase(), pitch, duration, velocity)
+
+    override var pitch: Int = 0
+     get() {
+        return code / 12 - 1
+    } set(value) {
+        code = code % 12 + value * 12
+        field = value
+    }
+
+    fun upperNoteName(times: Int = 1): _Note {
+        return this
+    }
+
+    fun lowerNoteName(times: Int = 1): _Note {
+        return this
+    }
+
+    override fun clone(): _Note {
+        return _Note(code, duration.clone())
+    }
+
+    override fun toString(): String = "[$code>${noteNameFromCode(code)}$pitch|$duration|$velocity]"
+}
 
 fun toMiderNoteList(str: String, defaultPitch: Int = 4): String {
     val list = mutableListOf<Note>()

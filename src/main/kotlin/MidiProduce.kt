@@ -83,6 +83,8 @@ object MidiProduce : KotlinPlugin(
                 } else {
                     ifUseMode(mode) { !toMiderNoteList(noteList, defaultPitch) }
                 }
+
+                ifDebug { debug() }
             }
 
             if (stream.available() > Config.uploadSize) {
@@ -105,6 +107,7 @@ object MidiProduce : KotlinPlugin(
 }
 
 object Config : AutoSavePluginConfig("config") {
+    val debug by value(true)
     val quality by value(64)
     val uploadSize by value(1153433L)
     val help by value("""
