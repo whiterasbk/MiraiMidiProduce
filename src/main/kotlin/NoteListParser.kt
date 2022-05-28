@@ -1,31 +1,215 @@
 package bot.music.whiter
 
 import net.mamoe.mirai.console.util.cast
-import whiter.music.mider.dsl.MiderDSL
-import java.time.Duration
+import java.lang.StringBuilder
 import java.util.*
-import kotlin.collections.ArrayList
 import kotlin.math.pow
+import java.io.File
+import java.net.URL
 
-fun toMiderNoteListv2(seq: String, pitch: Int = 4): List<InMusicScore> {
-    val list = mutableListOf<InMusicScore>()
-    val doAfter = mutableListOf<()->Unit>()
-    seq.forEachIndexed { index, char ->
+fun toMiderStanderNoteString(list: List<InMusicScore>): String {
+    val result = mutableListOf<SimpleNoteDescriber>()
 
-        when (char) {
+    list.forEach {
+        when (it) {
+            is _Note -> {
+                result += SimpleNoteDescriber.fromNote(it)
+            }
 
-            '(' -> {
-                if (seq[index + 1] == ':') {
-                    return@forEachIndexed
+            is Chord -> {
+                result += SimpleNoteDescriber.fromNote(it.rootNote)
+
+                it.rest.forEach { restNote ->
+                    val insert = SimpleNoteDescriber.fromNote(restNote)
+                    insert.duration =.0
+                    result += insert
                 }
             }
 
+            is Rest -> {
+                val rootNoteIndex = result.indexOfLast { it.duration != .0 }
+                if (rootNoteIndex != -1) {
+                    result[rootNoteIndex].duration += it.duration.value
+                }
+//                result.add(rootNoteIndex, SimpleNoteDescriber("O", it.duration.value))
+            }
+        }
+    }
+
+    return result.joinToString(" ")
+}
+
+fun macro(seq: String, config: MacroConfiguration = MacroConfiguration()): String {
+    if ('(' !in seq || ')' !in seq) return seq
+//    val innerScope = mutableMapOf<String, String>()
+    val outerScope = mutableMapOf<String, String>()
+    val macroScope = mutableMapOf<String, Pair<List<String>, String>>()
+//    val replacePattern = Regex("replace\\s*:\\s*[^>]+")
+//    val replaceWith = mutableListOf<MutableList<String>>()
+
+    val innerScopeExecute = { str: String ->
+        if (MacroConfiguration.getVariableValuePattern.matches(str)) {
+            val symbol = MacroConfiguration.getVariableValuePattern.matchEntire(str)!!.groupValues[1]
+            if (symbol !in outerScope) {
+                // todo 解决 innerScopeExecute 先于 innerScopeExecute 执行的问题
+                config.logger.error(Exception("undefined symbol: $symbol"))
+                str
+            } else outerScope[symbol]!!
+        } else {
+            config.logger.error(Exception("unsupported operation in inner: $str"))
+            str
+        }
+    }
+
+    val outerScopeExecute = { str: String ->
+        if (MacroConfiguration.definePattern.matches(str)) {
+            val symbol = MacroConfiguration.definePattern.matchEntire(str)!!.groupValues[1]
+            outerScope[symbol] = str.replace(Regex("def\\s+$symbol\\s*="), "")
+            ""
+        } else if (MacroConfiguration.executePattern.matches(str)) {
+            val symbol = MacroConfiguration.executePattern.matchEntire(str)!!.groupValues[1]
+            outerScope[symbol] = str.replace(Regex("def\\s+$symbol\\s*:"), "")
+            outerScope[symbol]
+        } else if (MacroConfiguration.getVariableValuePattern.matches(str)) {
+            val symbol = MacroConfiguration.getVariableValuePattern.matchEntire(str)!!.groupValues[1]
+            if (symbol !in outerScope) {
+                config.logger.error(Exception("undefined symbol: $symbol"))
+                str
+            } else outerScope[symbol]
+        } else if (MacroConfiguration.macroDefinePattern.matches(str)) {
+            val spl = str.split(":")
+            val name = Regex("macro\\s+[a-zA-Z_]\\w*").find(str)!!.value.replace(Regex("macro\\s+|\\s*"), "")
+            val params = spl[0].replace(Regex("macro\\s+[a-zA-Z_]\\w*|\\s*"), "").split(",")
+            val body = spl.subList(1, spl.size).joinToString("")
+            macroScope[name] = params to body
+            ""
+        } else if (MacroConfiguration.macroUsePattern.matches(str)) {
+            val name = MacroConfiguration.macroUsePattern.matchEntire(str)!!.groupValues[1]
+            val arguments = str.replace(Regex("!$name\\s+"), "").split(",").toMutableList()
+            if (macroScope.contains(name)) {
+                val params = macroScope[name]!!.first
+                var body = macroScope[name]!!.second
+
+                params.forEach {
+                    body = body.replace("@[$it]", if (arguments.isEmpty()) {
+                        config.logger.error(Exception("missing param: $it"))
+                        ""
+                    } else arguments.removeFirst())
+                }
+
+                body
+            } else {
+                config.logger.error(Exception("undefined macro: $name"))
+                str
+            }
+        } else if (MacroConfiguration.ifDefinePattern.matches(str)) {
+            val name = MacroConfiguration.ifDefinePattern.matchEntire(str)!!.groupValues[1]
+            val body = str.replace(Regex("ifdef\\s+$name\\s+"), "")
+            if (outerScope.contains(name)) body else ""
+        } else if (MacroConfiguration.ifNotDefinePattern.matches(str)) {
+            val name = MacroConfiguration.ifNotDefinePattern.matchEntire(str)!!.groupValues[1]
+            val body = str.replace(Regex("if!def\\s+$name\\s+"), "")
+            if (!outerScope.contains(name)) body else ""
+        } else if (MacroConfiguration.repeatPattern.matches(str)) {
+            val times = MacroConfiguration.repeatPattern.matchEntire(str)!!.groupValues[1].toInt()
+            val body = str.replace(Regex("repeat\\s+\\d+\\s*:"), "")
+            val result = StringBuilder()
+            for (i in 0 until times) {
+                result.append(body)
+            }
+            result
+        } else if (MacroConfiguration.includePattern.matches(str)) {
+            macro(config.fetch(str.replace(Regex("include\\s+"), "")), config)
+        } else {
+            config.logger.error(Exception("unsupported operation in outer: $str"))
+            str
+        }
+    }
+
+    val stack = Stack<Char>()
+
+    val buildStack = Stack<CharSequence>()
+    seq.replace("?", "").forEach {
+        if (it != ')') stack.push(it) else {
+            val sb = StringBuilder()
+            var stackChar: Char
+
+            do {
+                stackChar = stack.pop()
+                sb.append(stackChar)
+            } while (stackChar != '(')
+
+            stack.push('?')
+
+            buildStack.push(sb.toString().replaceFirst("(", ""))
+        }
+    }
+
+    val innerBuildStack = Stack<CharSequence>()
+
+    while (buildStack.isNotEmpty()) {
+        val undetermined = buildStack.pop()
+        val buildStackString = if (undetermined.contains('?')) {
+            var tmp = undetermined
+            for (i in 0 until charCount(tmp, '?')) {
+                // todo 调整执行顺序
+                val result = innerScopeExecute(buildStack.pop().toString().reversed())
+                tmp = tmp.replaceFirst(Regex("\\?"), result.reversed())
+            }
+            tmp.reversed()
+        } else undetermined.reversed()
+         innerBuildStack.push(buildStackString)
+    }
+
+    val result = StringBuilder()
+
+    stack.forEach {
+        if (it == '?') {
+            result.append(outerScopeExecute(innerBuildStack.pop().toString()))
+        } else result.append(it)
+    }
+
+    return result.toString()
+}
+
+fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, useMacro: Boolean = true, config: MacroConfiguration = MacroConfiguration()): List<InMusicScore> {
+
+    val list = mutableListOf<InMusicScore>()
+    val doAfter = mutableListOf<(Char)->Unit>()
+
+    fun cloneAndModify(times: Int = 1, isUpper: Boolean = true) {
+        if (list.last() is _Note) {
+            if (isUpper)
+                list += list.last().clone().cast<_Note>().upperNoteName(times)
+            else
+                list += list.last().clone().cast<_Note>().lowerNoteName(times)
+        }
+    }
+
+    fun cloneAndModifyInChord(chord: Chord, times: Int = 1, isUpper: Boolean = true) {
+        if (isUpper)
+            chord += chord.last().clone().upperNoteName(times)
+        else
+            chord += chord.last().clone().lowerNoteName(times)
+    }
+
+    seq.let { if (useMacro) macro(it, config) else it }.forEach { char ->
+
+        when (char) {
+
             in 'a'..'g' -> {
-                list += _Note(char, pitch = pitch)
+                if (isStave)
+                    list += _Note(char, pitch = pitch)
+                else if (char == 'b') {
+                    doAfter += {
+                        (list.last() as? _Note)?.flap()
+                    }
+                }
             }
 
             in 'A'..'G' -> {
-                list += _Note(char, pitch = pitch + 1)
+                if (isStave)
+                    list += _Note(char, pitch = pitch + 1)
             }
 
             'O' -> {
@@ -42,28 +226,73 @@ fun toMiderNoteListv2(seq: String, pitch: Int = 4): List<InMusicScore> {
                 list += list.last().clone()
             }
 
-            '^' -> {
-                if (list.last() is _Note) {
-                    list += list.last().clone().cast<_Note>().upperNoteName()
+            '^' -> cloneAndModify(1)
+            'm' -> cloneAndModify(2)
+            'n' -> cloneAndModify(3)
+            'p' -> cloneAndModify(5)
+            's' -> cloneAndModify(6)
+
+            'v' -> cloneAndModify(1, false)
+            'w' -> cloneAndModify(2, false)
+            'u' -> cloneAndModify(3, false)
+            'q' -> cloneAndModify(5, false)
+            'z' -> cloneAndModify(6, false)
+
+            'i' -> {
+                if (isStave) {
+                    cloneAndModify(4)
+                } else {
+                    if (list.last() is _Note)
+                        list.last().cast<_Note>() += 1
+                    else if (list.last() is Chord)
+                        list.last().cast<Chord>().last() += 1
                 }
             }
 
-            'v' -> {
-                if (list.last() is _Note) {
-                    list += list.last().clone().cast<_Note>().lowerNoteName()
+            '↑' -> {
+                if (list.last() is _Note)
+                    list.last().cast<_Note>() += 1
+                else if (list.last() is Chord)
+                    list.last().cast<Chord>().last() += 1
+            }
+
+            '!' -> {
+                if (isStave) {
+                    cloneAndModify(4, false)
+                } else {
+                    if (list.last() is _Note)
+                        list.last().cast<_Note>() -= 1
+                    else if (list.last() is Chord)
+                        list.last().cast<Chord>().last() -= 1
                 }
+            }
+
+            '↓' -> {
+                if (list.last() is _Note)
+                    list.last().cast<_Note>() -= 1
+                else if (list.last() is Chord)
+                    list.last().cast<Chord>().last() -= 1
             }
 
             in '0'..'9' -> {
-                if (list.last() is IHasPitch)
-                    list.last().cast<IHasPitch>().pitch = char.code - 48
-                else if (list.last() is Chord)
-                    list.last().cast<Chord>().notes.last().pitch = char.code - 48
+                if (isStave) {
+                    if (list.last() is _Note)
+                        list.last().cast<_Note>().pitch = char.code - 48
+                    else if (list.last() is Chord)
+                        list.last().cast<Chord>().last().pitch = char.code - 48
+                } else if (char in '1'..'7') {
+                    val note = _Note('C', pitch = pitch)
+                    note.sharp(deriveInterval(char.code - 49))
+                    list += note
+                } else if (char == '0') {
+                    doAfter.clear()
+                    list += Rest()
+                }
             }
 
             '#' -> {
                 doAfter += {
-                    (list.last() as? IHasPitch)?.sharp()
+                    (list.last() as? _Note)?.sharp()
                 }
             }
 
@@ -81,7 +310,19 @@ fun toMiderNoteListv2(seq: String, pitch: Int = 4): List<InMusicScore> {
                 }
             }
 
-            '\'' -> { if (list.last() is _Note) list.last().cast<_Note>().flap() }
+            '\'' -> {
+                if (list.last() is _Note)
+                    list.last().cast<_Note>().flap()
+                else if (list.last() is Chord)
+                    list.last().cast<Chord>().last().flap()
+            }
+
+            '"' -> {
+                if (list.last() is _Note)
+                    list.last().cast<_Note>().sharp()
+                else if (list.last() is Chord)
+                    list.last().cast<Chord>().last().sharp()
+            }
 
             ':' -> {
                 val chord: Chord = if (list.last() is _Note) {
@@ -93,38 +334,126 @@ fun toMiderNoteListv2(seq: String, pitch: Int = 4): List<InMusicScore> {
                 } else throw Exception("build chord failed: unsupported type: ${list.last()}")
 
                 doAfter += {
-                    chord += list.removeLast().cast()
+                    when(it) {
+                        '^' -> cloneAndModifyInChord(chord, 1)
+                        'm' -> cloneAndModifyInChord(chord, 2)
+                        'n' -> cloneAndModifyInChord(chord, 3)
+                        'p' -> cloneAndModifyInChord(chord, 4)
+                        'i' -> {
+                            if (isStave)
+                                cloneAndModifyInChord(chord, 5)
+                        }
+                        's' -> cloneAndModifyInChord(chord, 6)
+
+                        'v' -> cloneAndModifyInChord(chord, 1, false)
+                        'w' -> cloneAndModifyInChord(chord, 2, false)
+                        'u' -> cloneAndModifyInChord(chord, 3, false)
+                        'q' -> cloneAndModifyInChord(chord, 4, false)
+                        '!' -> {
+                            if (isStave)
+                                cloneAndModifyInChord(chord, 5, false)
+                        }
+                        'z' -> cloneAndModifyInChord(chord, 6, false)
+
+                        else -> {
+                            chord += list.removeLast().cast()
+                        }
+                    }
+                }
+            }
+
+            '*' -> {
+                doAfter += {
+                    if (it in '1'..'9') {
+                        list.removeLast()
+                        for (i in 0 until it.code - 49) {
+                            list += list.last().clone()
+                        }
+                    }
                 }
             }
 
             '+' -> {
-                if (list.last() is _Note || list.last() is Rest)
-                    list.last().duration.double
+                list.last().duration.double
             }
 
             '-' -> {
-                if (list.last() is _Note || list.last() is Rest)
-                    list.last().duration.halve
+                list.last().duration.halve
             }
 
             '.' -> {
-                if (list.last() is _Note || list.last() is Rest)
-                    list.last().duration.point
+                list.last().duration.point
             }
         }
 
-        when(char) {
-            in "abcdefgABCDEFG~^vmwnui!pqsz" -> {
-                doAfter.asReversed().forEach { it() }
-                doAfter.clear()
+        if (isStave) {
+            when(char) {
+                in "abcdefgABCDEFG~^vmwnui!pqsz" -> {
+                    doAfter.asReversed().forEach { it(char) }
+                    doAfter.clear()
+                }
+            }
+        } else {
+            when(char) {
+                in "1234567~^vmwnupqsz" -> {
+                    doAfter.asReversed().forEach { it(char) }
+                    doAfter.clear()
+                }
             }
         }
-
     }
 
     return list
 }
 
+class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
+
+    companion object {
+        val variableNamePattern = Regex("([a-zA-Z_@]\\w*)")
+        val getVariableValuePattern = Regex("=\\s*${variableNamePattern.pattern}\\s*")
+        val definePattern = Regex("def\\s+${variableNamePattern.pattern}\\s*=\\s*[^>\\s][^>]*")
+        val executePattern = Regex("def\\s+${variableNamePattern.pattern}\\s*:\\s*[^>\\s][^>]*")
+        val macroDefinePattern = Regex("macro\\s+[a-zA-Z_]\\w*\\s+([a-zA-Z_]\\w*)(\\s*,\\s*([a-zA-Z_]\\w*))*\\s*:(\\s*[^>\\s][^>]*)")
+        val macroUsePattern = Regex("!([a-zA-Z_]\\w*)\\s+[^>]+")
+        val ifDefinePattern = Regex("ifdef\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
+        val ifNotDefinePattern = Regex("if!def\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
+        val repeatPattern = Regex("repeat\\s+(\\d+)\\s*:\\s*[^>]+")
+        val includePattern = Regex("include\\s+(https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]")
+    }
+
+    val logger: LoggerImpl = LoggerImpl()
+    var useStrict = false
+    var fetch: (String) -> String = {
+        if (it.startsWith("file://"))
+            File(it.replace("file://", "")).readText()
+        else {
+            URL(it).openStream().reader().readText()
+        }
+    }
+
+    init {
+        build(MacroConfigurationBuilder())
+    }
+
+    class LoggerImpl {
+        var info: (String) -> Unit = { println("info>>$it") }
+        var error: (Exception) -> Unit = { println("err>>$it") }
+    }
+
+    inner class MacroConfigurationBuilder {
+        fun loggerInfo(block: (String)-> Unit) {
+            logger.info = block
+        }
+
+        fun loggerError(block: (Exception)-> Unit) {
+            logger.error = block
+        }
+
+        fun fetchMethod(block: (String)-> String) {
+            fetch = block
+        }
+    }
+}
 
 interface InMusicScore: Cloneable {
     val duration: DurationDescribe
@@ -132,7 +461,8 @@ interface InMusicScore: Cloneable {
 
     class DurationDescribe (
         var bar: Int = 0, // 符杆数, 默认为 0 也就是 四分音符
-        var dot: Int = 0 // 附点数
+        var dot: Int = 0, // 附点数
+        var default: Double = .25 // 默认为四分音符时值
     ): Cloneable {
 
         val point: DurationDescribe get() {
@@ -150,36 +480,14 @@ interface InMusicScore: Cloneable {
             return this
         }
 
+        val value: Double get() = default * 2.0.pow(bar) * 1.5.pow(dot)
+
         public override fun clone(): DurationDescribe {
             return DurationDescribe(bar, dot)
         }
 
-        override fun toString(): String {
-            return (.25 * 2.0.pow(bar) * 1.5.pow(dot)).toString()
-        }
+        override fun toString(): String = value.toString()
     }
-}
-
-private interface IHasPitch {
-    var pitch: Int
-    var code: Int
-
-    operator fun plusAssign(addPitch: Int) {
-        code += addPitch * 12
-    }
-
-    operator fun minusAssign(addPitch: Int) {
-        code -= addPitch * 12
-    }
-
-    fun sharp(times: Int = 1) {
-        code += times
-    }
-
-    fun flap(times: Int = 1) {
-        code -= times
-    }
-
 }
 
 private class Chord(vararg firstNotes: _Note) : InMusicScore {
@@ -193,7 +501,7 @@ private class Chord(vararg firstNotes: _Note) : InMusicScore {
     val secondNote get() = notes[1]
     val thirdNote get() = notes[2]
     val forthNote get() = notes[3]
-
+    val rest: List<_Note> get() = notes.subList(1, notes.size)
     override val duration: InMusicScore.DurationDescribe = rootNote.duration
 
     override fun clone(): Chord {
@@ -204,6 +512,8 @@ private class Chord(vararg firstNotes: _Note) : InMusicScore {
 
         return Chord(*cloneNotes.toTypedArray())
     }
+
+    fun last() = notes.last()
 
     operator fun plusAssign(note: _Note) {
         notes += note
@@ -223,30 +533,50 @@ private class Rest(override val duration: InMusicScore.DurationDescribe = InMusi
 }
 
 private class _Note(
-    override var code: Int,
+    var code: Int,
     override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(),
     val velocity: Int = 100,
     var isNature: Boolean = false // 是否添加了还原符号
-) : InMusicScore, IHasPitch {
+) : InMusicScore {
 
     constructor(name: String, pitch: Int = 4, duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(), velocity: Int = 100)
             : this(noteBaseOffset (name) + (pitch + 1) * 12, duration, velocity)
     constructor(name: Char, pitch: Int = 4, duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(), velocity: Int = 100)
             : this(name.uppercase(), pitch, duration, velocity)
 
-    override var pitch: Int = 0
-     get() {
-        return code / 12 - 1
-    } set(value) {
-        code = code % 12 + value * 12
-        field = value
+    var pitch: Int = 0
+        get() {
+            return code / 12 - 1
+        } set(value) {
+            code = code % 12 + (value + 1) * 12
+            field = value
+        }
+
+    operator fun plusAssign(addPitch: Int) {
+        code += addPitch * 12
+    }
+
+    operator fun minusAssign(addPitch: Int) {
+        code -= addPitch * 12
+    }
+
+    fun sharp(times: Int = 1) {
+        code = (code + times) % 128
+    }
+
+    fun flap(times: Int = 1) {
+        code -= times
     }
 
     fun upperNoteName(times: Int = 1): _Note {
+        for (i in 0 until times)
+            code += nextNoteIntervalInMajorScale(code)
         return this
     }
 
     fun lowerNoteName(times: Int = 1): _Note {
+        for (i in 0 until times)
+            code -= previousNoteIntervalInMajorScale(code)
         return this
     }
 
@@ -256,6 +586,57 @@ private class _Note(
 
     override fun toString(): String = "[$code>${noteNameFromCode(code)}$pitch|$duration|$velocity]"
 }
+
+private class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4) {
+
+    companion object {
+        fun fromNote(note: _Note): SimpleNoteDescriber {
+            return SimpleNoteDescriber(getNoteName(note), note.duration.value, note.pitch)
+        }
+
+        fun getNoteName(note: _Note): String {
+            return if (note.isNature) {
+                "!" + noteNameFromCode(note.code).replace("#", "")
+            } else noteNameFromCode(note.code)
+        }
+    }
+
+    override fun toString(): String = "$name[$pitch,$duration]"
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 fun toMiderNoteList(str: String, defaultPitch: Int = 4): String {
     val list = mutableListOf<Note>()

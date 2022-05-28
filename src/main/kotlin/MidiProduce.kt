@@ -1,5 +1,10 @@
 package bot.music.whiter
 
+import io.ktor.client.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.mamoe.mirai.console.data.AutoSavePluginConfig
 import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
@@ -9,7 +14,10 @@ import net.mamoe.mirai.event.globalEventChannel
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
+import okhttp3.Dispatcher
 import whiter.music.mider.dsl.MiderDSL
+import java.io.File
+import java.net.URL
 
 object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
@@ -43,6 +51,9 @@ object MidiProduce : KotlinPlugin(
 
     private suspend fun GroupMessageEvent.generate() {
         matchRegex(Regex(">((g|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|wex&au)?)>[^>]+")) { msg ->
+
+            logger.info("sounds begin")
+
             var arrowCount = 0
             var availCount = 0
             var defaultBmp = 80
@@ -72,17 +83,33 @@ object MidiProduce : KotlinPlugin(
 
             val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
                 bpm = defaultBmp
+                defaultNoteDuration = 1
 
-                if (noteList.matches(Regex("[0-9.\\s-+*/|↑↓i!#b&]+"))) {
-                    if (noteList.trim().matches(Regex("b+"))) {
-                        ifUseMode(mode) { !toMiderNoteList(noteList, defaultPitch) }
-                    } else {
-                        if (defaultPitch != 4) pitch = defaultPitch.toByte()
-                        ifUseMode(mode) { parseInt(noteList.replace(Regex("( {2}| \\| )"), "0")) }
+                val sequence = macro(noteList, MacroConfiguration {
+                    loggerInfo { logger.info(it) }
+                    loggerError { logger.error(it) }
+                    fetchMethod {
+                        if (it.startsWith("file://"))
+                            resolveDataFile(it.replace("file://", "")).readText()
+                        else
+                            URL(it).openStream().reader().readText()
                     }
-                } else {
-                    ifUseMode(mode) { !toMiderNoteList(noteList, defaultPitch) }
-                }
+                })
+
+                //.matches(Regex("[0-9.\\s-+*/|↑↓i!#b&:~^vmwunpqsz]+"))
+
+                val isStave = Regex("[c-gC-GaA]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
+
+                val rendered = toInMusicScoreList(sequence.let {
+                        if (isStave) it else
+                            it.replace(Regex("( {2}| \\| )"),"0")
+                    },
+                    isStave = isStave,
+                    pitch = defaultPitch, useMacro = false)
+
+                ifUseMode(mode) { !toMiderStanderNoteString(rendered) }
+
+                // 渲染 乐谱
 
                 ifDebug { debug() }
             }

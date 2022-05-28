@@ -111,6 +111,53 @@ fun noteNameFromCode(code: Int): String {
     }
 }
 
+fun charCount(str: CharSequence, char: Char): Int {
+    return str.filter { it == char }.count()
+}
+
+fun deriveInterval(index: Int, scale: Array<Int> = arrayOf(2, 2, 1, 2, 2, 2, 1)): Int {
+    var sum = 0
+    for (i in 0 until index) {
+        sum += scale[i]
+    }
+    return sum
+}
+
+fun nextNoteIntervalInMajorScale(code: Int): Int {
+    return when(code % 12) {
+        0 -> 2  // C
+        1 -> 2  // C#
+        2 -> 2  // D
+        3 -> 2  // D#
+        4 -> 1  // E
+        5 -> 2  // F
+        6 -> 2  // F#
+        7 -> 2  // G
+        8 -> 2  // G#
+        9 -> 2  // A
+        10 -> 2 // A#
+        11 -> 1 // B
+        else -> 2
+    }
+}
+
+fun previousNoteIntervalInMajorScale(code: Int): Int {
+    return when(code % 12) {
+        0 -> 1  // C
+        1 -> 2  // C#
+        2 -> 2  // D
+        3 -> 2  // D#
+        4 -> 2  // E
+        5 -> 1  // F
+        6 -> 2  // F#
+        7 -> 2  // G
+        8 -> 2  // G#
+        9 -> 2  // A
+        10 -> 2 // A#
+        11 -> 2 // B
+        else -> 2
+    }
+}
 
 
 
