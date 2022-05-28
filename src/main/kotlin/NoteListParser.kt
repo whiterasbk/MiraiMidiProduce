@@ -12,7 +12,7 @@ fun toMiderStanderNoteString(list: List<InMusicScore>): String {
 
     list.forEach {
         when (it) {
-            is _Note -> {
+            is Note -> {
                 result += SimpleNoteDescriber.fromNote(it)
             }
 
@@ -178,11 +178,11 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
     val doAfter = mutableListOf<(Char)->Unit>()
 
     fun cloneAndModify(times: Int = 1, isUpper: Boolean = true) {
-        if (list.last() is _Note) {
+        if (list.last() is Note) {
             if (isUpper)
-                list += list.last().clone().cast<_Note>().upperNoteName(times)
+                list += list.last().clone().cast<Note>().upperNoteName(times)
             else
-                list += list.last().clone().cast<_Note>().lowerNoteName(times)
+                list += list.last().clone().cast<Note>().lowerNoteName(times)
         }
     }
 
@@ -199,17 +199,17 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
 
             in 'a'..'g' -> {
                 if (isStave)
-                    list += _Note(char, pitch = pitch)
+                    list += Note(char, pitch = pitch)
                 else if (char == 'b') {
                     doAfter += {
-                        (list.last() as? _Note)?.flap()
+                        (list.last() as? Note)?.flap()
                     }
                 }
             }
 
             in 'A'..'G' -> {
                 if (isStave)
-                    list += _Note(char, pitch = pitch + 1)
+                    list += Note(char, pitch = pitch + 1)
             }
 
             'O' -> {
@@ -242,16 +242,16 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
                 if (isStave) {
                     cloneAndModify(4)
                 } else {
-                    if (list.last() is _Note)
-                        list.last().cast<_Note>() += 1
+                    if (list.last() is Note)
+                        list.last().cast<Note>() += 1
                     else if (list.last() is Chord)
                         list.last().cast<Chord>().last() += 1
                 }
             }
 
             '↑' -> {
-                if (list.last() is _Note)
-                    list.last().cast<_Note>() += 1
+                if (list.last() is Note)
+                    list.last().cast<Note>() += 1
                 else if (list.last() is Chord)
                     list.last().cast<Chord>().last() += 1
             }
@@ -260,28 +260,28 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
                 if (isStave) {
                     cloneAndModify(4, false)
                 } else {
-                    if (list.last() is _Note)
-                        list.last().cast<_Note>() -= 1
+                    if (list.last() is Note)
+                        list.last().cast<Note>() -= 1
                     else if (list.last() is Chord)
                         list.last().cast<Chord>().last() -= 1
                 }
             }
 
             '↓' -> {
-                if (list.last() is _Note)
-                    list.last().cast<_Note>() -= 1
+                if (list.last() is Note)
+                    list.last().cast<Note>() -= 1
                 else if (list.last() is Chord)
                     list.last().cast<Chord>().last() -= 1
             }
 
             in '0'..'9' -> {
                 if (isStave) {
-                    if (list.last() is _Note)
-                        list.last().cast<_Note>().pitch = char.code - 48
+                    if (list.last() is Note)
+                        list.last().cast<Note>().pitch = char.code - 48
                     else if (list.last() is Chord)
                         list.last().cast<Chord>().last().pitch = char.code - 48
                 } else if (char in '1'..'7') {
-                    val note = _Note('C', pitch = pitch)
+                    val note = Note('C', pitch = pitch)
                     note.sharp(deriveInterval(char.code - 49))
                     list += note
                 } else if (char == '0') {
@@ -292,40 +292,40 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
 
             '#' -> {
                 doAfter += {
-                    (list.last() as? _Note)?.sharp()
+                    (list.last() as? Note)?.sharp()
                 }
             }
 
             '&' -> {
                 doAfter += {
-                    if (list.last() is _Note)
-                        list.last().cast<_Note>().isNature = true
+                    if (list.last() is Note)
+                        list.last().cast<Note>().isNature = true
                 }
             }
 
             '$' -> {
                 doAfter += {
-                    if (list.last() is _Note)
-                        list.last().cast<_Note>().flap()
+                    if (list.last() is Note)
+                        list.last().cast<Note>().flap()
                 }
             }
 
             '\'' -> {
-                if (list.last() is _Note)
-                    list.last().cast<_Note>().flap()
+                if (list.last() is Note)
+                    list.last().cast<Note>().flap()
                 else if (list.last() is Chord)
                     list.last().cast<Chord>().last().flap()
             }
 
             '"' -> {
-                if (list.last() is _Note)
-                    list.last().cast<_Note>().sharp()
+                if (list.last() is Note)
+                    list.last().cast<Note>().sharp()
                 else if (list.last() is Chord)
                     list.last().cast<Chord>().last().sharp()
             }
 
             ':' -> {
-                val chord: Chord = if (list.last() is _Note) {
+                val chord: Chord = if (list.last() is Note) {
                     val c = Chord(list.removeLast().cast())
                     list += c
                     c
@@ -490,7 +490,7 @@ interface InMusicScore: Cloneable {
     }
 }
 
-private class Chord(vararg firstNotes: _Note) : InMusicScore {
+private class Chord(vararg firstNotes: Note) : InMusicScore {
 
     init {
         if (firstNotes.isEmpty()) throw Exception("a chord needs notes to buildup")
@@ -501,11 +501,11 @@ private class Chord(vararg firstNotes: _Note) : InMusicScore {
     val secondNote get() = notes[1]
     val thirdNote get() = notes[2]
     val forthNote get() = notes[3]
-    val rest: List<_Note> get() = notes.subList(1, notes.size)
+    val rest: List<Note> get() = notes.subList(1, notes.size)
     override val duration: InMusicScore.DurationDescribe = rootNote.duration
 
     override fun clone(): Chord {
-        val cloneNotes = mutableListOf<_Note>()
+        val cloneNotes = mutableListOf<Note>()
         notes.forEach {
             cloneNotes += it.clone()
         }
@@ -515,7 +515,7 @@ private class Chord(vararg firstNotes: _Note) : InMusicScore {
 
     fun last() = notes.last()
 
-    operator fun plusAssign(note: _Note) {
+    operator fun plusAssign(note: Note) {
         notes += note
     }
 
@@ -532,7 +532,7 @@ private class Rest(override val duration: InMusicScore.DurationDescribe = InMusi
     override fun toString(): String = "[Rest|$duration]"
 }
 
-private class _Note(
+private class Note(
     var code: Int,
     override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(),
     val velocity: Int = 100,
@@ -568,20 +568,20 @@ private class _Note(
         code -= times
     }
 
-    fun upperNoteName(times: Int = 1): _Note {
+    fun upperNoteName(times: Int = 1): Note {
         for (i in 0 until times)
             code += nextNoteIntervalInMajorScale(code)
         return this
     }
 
-    fun lowerNoteName(times: Int = 1): _Note {
+    fun lowerNoteName(times: Int = 1): Note {
         for (i in 0 until times)
             code -= previousNoteIntervalInMajorScale(code)
         return this
     }
 
-    override fun clone(): _Note {
-        return _Note(code, duration.clone())
+    override fun clone(): Note {
+        return Note(code, duration.clone())
     }
 
     override fun toString(): String = "[$code>${noteNameFromCode(code)}$pitch|$duration|$velocity]"
@@ -590,11 +590,11 @@ private class _Note(
 private class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4) {
 
     companion object {
-        fun fromNote(note: _Note): SimpleNoteDescriber {
+        fun fromNote(note: Note): SimpleNoteDescriber {
             return SimpleNoteDescriber(getNoteName(note), note.duration.value, note.pitch)
         }
 
-        fun getNoteName(note: _Note): String {
+        fun getNoteName(note: Note): String {
             return if (note.isNature) {
                 "!" + noteNameFromCode(note.code).replace("#", "")
             } else noteNameFromCode(note.code)
@@ -602,246 +602,4 @@ private class SimpleNoteDescriber(val name: String, var duration: Double, var pi
     }
 
     override fun toString(): String = "$name[$pitch,$duration]"
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-fun toMiderNoteList(str: String, defaultPitch: Int = 4): String {
-    val list = mutableListOf<Note>()
-    val stack = Stack<Char>()
-    val cha = str + 'a'
-    var lastNote: Note? = null
-
-    val fromPreviousChars = "^vi~!mwnupqsz".toCharArray()
-    val notePattenChars = ('a'..'g') + ('A'..'G')
-    val noteModifyChars = ('0'..'9') + "$:.#+-"
-
-    cha.forEach { char ->
-        if (char !in fromPreviousChars) {
-            if (char in notePattenChars) {
-                // println("iLLLg: $it")
-                if (!stack.empty()) {
-                    var r = ""
-                    while (!stack.empty()) {
-                        r += stack.pop()
-                    }
-
-                    // println("inaagg: ${r.reversed()}")
-
-                    if (r.reversed()[0] in fromPreviousChars) {
-                        val nc = convertPrevious(r.reversed(), lastNote!!)
-                        lastNote = nc
-                        list.add(nc)
-                    } else {
-                        val n = toNote(r.reversed(), defaultPitch)
-                        lastNote = n
-                        list.add(n)
-                    }
-
-
-                }
-
-                stack.push(char)
-            } else {
-
-                if (char in noteModifyChars) {
-                    stack.push(char)
-                }
-            }
-        } else {
-
-            // println(">>$it  $last_note")
-
-            if (!stack.empty()) {
-                var r = ""
-                while (!stack.empty()) {
-                    r += stack.pop()
-                }
-
-//                println(">>>>$it>" + r.reversed())
-
-                lastNote = if (r.reversed()[0] in notePattenChars) {
-                    // println(r.reversed())
-                    // println(">>>>$it>" + r.reversed())
-                    val note = toNote(r.reversed(), defaultPitch)
-                    list.add(note)
-                    note
-                } else {
-
-                    val note = convertPrevious(r.reversed(), lastNote!!)
-                    list.add(note)
-                    note
-                }
-
-                stack.push(char)
-            }
-        }
-    }
-
-    return list.joinToString(" ")
-}
-
-private fun convertPrevious(str: String, last: Note): Note {
-
-//    var plus_count = 0
-//    var minus_count = 0
-
-    val nc = last.clone()
-
-    str.forEach { char ->
-
-        when (char) {
-            '^' -> nc.up()
-            'v' -> nc.down()
-            '~' -> {}
-            'm' -> nc.up(2)
-            'w' -> nc.down(2)
-            'n' -> nc.up(3)
-            'u' -> nc.down(3)
-            'i' -> nc.up(4)
-            '!' -> nc.down(4)
-            'p' -> nc.up(5)
-            'q' -> nc.down(5)
-            's' -> nc.up(6)
-            'z' -> nc.down(6)
-            '+' -> nc.longer()
-            '-' -> nc.shorter()
-            '.' -> nc.dot()
-            ':' -> nc.intv0()
-        }
-    }
-    return nc
-}
-
-private fun toNote(str: String, defaultPitch: Int = 4): Note {
-
-    val note = Note("")
-
-    str.forEach { char ->
-
-        when (char) {
-            in 'a'..'g' -> {
-                note.root_note = char.uppercase(Locale.getDefault())
-                note.num = defaultPitch
-            }
-            in 'A'..'G' -> {
-                note.root_note = char.uppercase(Locale.getDefault())
-                note.num = defaultPitch + 1 // 5
-            }
-            '$' -> note.bos = "b"
-            '#' -> note.bos = "#"
-            in '0'..'9' -> note.num = char.code - 48
-            '+' -> note.longer()
-            '-' -> note.shorter()
-            '.' -> note.dot()
-            ':' -> note.intv0()
-        }
-    }
-    return note
-}
-
-private class Note(
-    var root_note: String?,
-    var num: Int = 4,
-    var duration: Double = 4.0,
-    var bos: String = "",
-    var interval: String = "."
-) {
-
-    fun shorter() {
-        this.duration = this.duration.div(2)
-//        this.duration= this.duration.times(2)
-    }
-
-    fun longer() {
-        this.duration = this.duration.times(2)
-//        this.duration = this.duration.div(2)
-    }
-
-    fun intv(interval: String = ".") {
-        this.interval = interval
-    }
-
-    fun intv0() {
-        this.interval = "0"
-//        this.duration = 0.0
-    }
-
-    fun dot() {
-        this.duration = this.duration.times(1.5)
-    }
-
-    override fun toString(): String {
-        return "$bos$root_note[$num,$duration]"
-    }
-
-    fun clone(): Note {
-        return Note(root_note, num, duration, bos)
-    }
-
-    fun up(c: Int = 1): Note {
-        for (i in 0 until c)
-            when (root_note) {
-                "C" -> root_note = "D"
-                "D" -> root_note = "E"
-                "E" -> root_note = "F"
-                "F" -> root_note = "G"
-                "G" -> root_note = "A"
-                "A" -> root_note = "B"
-                "B" -> {
-                    root_note = "C"
-                    this.num++
-                }
-            }
-        return this
-    }
-
-    fun down(c: Int = 1): Note {
-        for (i in 0 until c)
-            when (root_note) {
-                "C" -> {
-                    root_note = "B"
-                    this.num--
-                }
-                "B" -> root_note = "A"
-                "A" -> root_note = "G"
-                "G" -> root_note = "F"
-                "F" -> root_note = "E"
-                "E" -> root_note = "D"
-                "D" -> root_note = "C"
-            }
-        return this
-    }
 }
