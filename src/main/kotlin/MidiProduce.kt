@@ -240,7 +240,7 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("宏是否启用严格模式")
     val macroUseStrictMode by value(true)
     @ValueDescription("是否启用调试")
-    val debug by value(true)
+    val debug by value(false)
     @ValueDescription("是否启用空格替换")
     val isBlankReplaceWith0 by value(true)
     @ValueDescription("量化深度 理论上越大生成 mp3 的质量越好, java-lame 给出的值是 256")

@@ -61,7 +61,7 @@ fun ifDebug(block: ()-> Unit) {
 }
 
 fun ifDebug(info: String) {
-    MidiProduce.logger.info(info)
+    if (Config.debug) MidiProduce.logger.info(info)
 }
 
 fun noteBaseOffset(note: String): Int {
@@ -163,9 +163,8 @@ inline fun time(block: () -> Unit) {
         val startCountingTime = System.currentTimeMillis()
         block()
         val useTime = System.currentTimeMillis() - startCountingTime
-
         MidiProduce.logger.info("生成用时: ${useTime.autoTimeUnit()}")
-    }
+    } else block()
 }
 
 fun generateStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {

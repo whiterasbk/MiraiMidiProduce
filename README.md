@@ -162,6 +162,6 @@ uploadSize: 1153433
 
 ## release 中的多个发行包
 
-带 `.silkf4` 的是打包了 [silk4j](https://github.com/mzdluo123/silk4j) 的包
+带 `bundled-silkf4` 的是打包了 [silk4j](https://github.com/mzdluo123/silk4j) 的包
 
 如果确定不需要使用转换 `silk` 的功能可以直接下载不带后缀版本的包
