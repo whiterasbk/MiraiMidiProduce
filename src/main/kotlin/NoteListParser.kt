@@ -27,11 +27,14 @@ fun toMiderStanderNoteString(list: List<InMusicScore>): String {
             }
 
             is Rest -> {
-                val rootNoteIndex = result.indexOfLast { it.duration != .0 }
-                if (rootNoteIndex != -1) {
-                    result[rootNoteIndex].duration += it.duration.value
+                if (result.isEmpty()) {
+                    result += SimpleNoteDescriber.fromRest(it)
+                } else {
+                    val rootNoteIndex = result.indexOfLast { it.duration != .0 }
+                    if (rootNoteIndex != -1) {
+                        result[rootNoteIndex].duration += it.duration.value
+                    }
                 }
-//                result.add(rootNoteIndex, SimpleNoteDescriber("O", it.duration.value))
             }
         }
     }
@@ -619,11 +622,15 @@ class Note(
     override fun toString(): String = "[$code=${noteNameFromCode(code)}$pitch|$duration|$velocity]"
 }
 
-data class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4) {
+data class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4, val isRest: Boolean = false) {
 
     companion object {
         fun fromNote(note: Note): SimpleNoteDescriber {
             return SimpleNoteDescriber(getNoteName(note), note.duration.value, note.pitch)
+        }
+
+        fun fromRest(rest: Rest): SimpleNoteDescriber {
+            return SimpleNoteDescriber("O", duration = rest.duration.value, isRest = true)
         }
 
         private fun getNoteName(note: Note): String {
@@ -633,5 +640,5 @@ data class SimpleNoteDescriber(val name: String, var duration: Double, var pitch
         }
     }
 
-    override fun toString(): String = "$name[$pitch,$duration]"
+    override fun toString(): String = if (isRest) "O*$duration" else "$name[$pitch,$duration]"
 }

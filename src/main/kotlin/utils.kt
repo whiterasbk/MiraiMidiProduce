@@ -158,7 +158,7 @@ fun Long.autoTimeUnit(): String {
     }
 }
 
-inline fun time(block: () -> Unit) {
+suspend fun time(block: suspend () -> Unit) {
     if (Config.debug) {
         val startCountingTime = System.currentTimeMillis()
         block()
