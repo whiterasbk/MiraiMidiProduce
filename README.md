@@ -148,7 +148,7 @@ uploadSize: 1153433
 ## 关于 timidity 和 ffmpeg
 在服务器环境插件可能会由于缺少硬件或驱动支持无法生成语音, 可以尝试安装 `timidity` 和 `ffmpeg` 解决
 
-具体的安装可以参考 [这篇](https://www.bbsmax.com/A/ZOJPo6xEzv/)
+具体的安装可以参考 [这篇](https://www.cnblogs.com/koujiaonuhan/p/aliyun_centos65_install_ffmpeg_libmp3lame_timidity_to_convert_midi_to_mp3.html)
 
 这里提供一个 `sf2` 的 [音色库](https://cowtransfer.com/s/2f42efd92be448)
 
