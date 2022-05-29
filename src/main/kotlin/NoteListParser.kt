@@ -454,7 +454,6 @@ class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
         }
     }
 
-
     init {
         build(MacroConfigurationBuilder())
     }

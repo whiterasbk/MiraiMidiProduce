@@ -1,30 +1,79 @@
 package bot.music.whiter
 
+import io.github.mzdluo123.silk4j.AudioUtils
 import net.mamoe.mirai.console.data.AutoSavePluginConfig
 import net.mamoe.mirai.console.data.ValueDescription
 import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
+import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
+import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.globalEventChannel
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
 import whiter.music.mider.dsl.MiderDSL
+import java.io.FileFilter
+import java.io.InputStream
 import java.net.URL
 
 object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
         id = "bot.music.whiter.MidiProduce",
         name = "MidiProduce",
-        version = "0.1",
+        version = "0.1.4",
     ) {
         author("whiterasbk")
     }
 ) {
+
+    val tmpDir = resolveDataFile("tmp")
+
     override fun onEnable() {
         logger.info { "MidiProduce loaded" }
+
         Config.reload()
+
+        if (!tmpDir.exists()) tmpDir.mkdir()
+
+        try {
+            tmpDir.listFiles(FileFilter {
+                it.extension == "so" ||
+                it.extension == "dll" ||
+                it.extension == "lib" ||
+                it.extension == "mp3" ||
+                it.extension == "silk" ||
+                it.extension == "wave" ||
+                it.extension == "wav" ||
+                it.extension == "amr" ||
+                it.extension == "mid" ||
+                it.extension == "midi" ||
+                it.extension == "pcm"
+            })?.forEach {
+                it.delete()
+            }
+        } catch (e: Exception) {
+            logger.error("清理缓存失败")
+            logger.error(e)
+        }
+
+        if (Config.formatMode.contains("silk4j")) {
+            try {
+                AudioUtils.init(tmpDir)
+            } catch (e: Exception) {
+                logger.error("silk4j 加载失败, 将无法生成语音")
+                logger.error(e)
+            }
+        }
+
+        if (Config.formatMode.contains("timidity") && Config.timidityConvertCommand.isBlank()) {
+            logger.error("timidity 命令未配置, 将无法生成语音(wav)")
+        }
+
+        if (Config.formatMode.contains("ffmpeg") && Config.ffmpegConvertCommand.isBlank()) {
+            logger.error("ffmpeg 命令未配置, 将无法生成语音(mp3)")
+        }
 
         globalEventChannel().subscribeAlways<GroupMessageEvent> {
             try {
@@ -32,18 +81,28 @@ object MidiProduce : KotlinPlugin(
                 printHelp()
             } catch (e: Exception) {
                 logger.error(e)
-                group.sendMessage("解析错误>${e::class.simpleName}: " + e.message)
+                group.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
+            }
+        }
+
+        globalEventChannel().subscribeAlways<FriendMessageEvent> {
+            try {
+                generate()
+                printHelp()
+            } catch (e: Exception) {
+                logger.error(e)
+                friend.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
             }
         }
     }
 
-    private suspend fun GroupMessageEvent.printHelp() {
+    private suspend fun MessageEvent.printHelp() {
         if (message.content == ">!help>") {
-            group.sendMessage(Config.help)
+            subject.sendMessage(Config.help)
         }
     }
 
-    private suspend fun GroupMessageEvent.generate() {
+    private suspend fun MessageEvent.generate() {
 
         val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?)>")
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
@@ -56,7 +115,7 @@ object MidiProduce : KotlinPlugin(
                 noteLists.removeFirst()
                 val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
 
-                val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
+                val stream: InputStream = generateStreamByFormatMode {
 
                     val macroConfig = MacroConfiguration {
 
@@ -100,10 +159,10 @@ object MidiProduce : KotlinPlugin(
 
                             val sequence = macro(content, macroConfig)
 
-                            val isStave = Regex("[c-gC-GaA]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
+                            val isStave = Regex("[c-gaA-G]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
 
                             val rendered = toInMusicScoreList(sequence.let {
-                                if (isStave) it else
+                                if (isStave && Config.isBlankReplaceWith0) it else
                                     it.trim().replace(Regex("( {2}| \\| )"),"0")
                                 },
                                 isStave = isStave,
@@ -122,13 +181,30 @@ object MidiProduce : KotlinPlugin(
                     }
                 }
 
-                if (stream.available() > Config.uploadSize) {
-                    stream.toExternalResource().use { group.files.uploadNewFile("generate.mp3", it) }
-                } else {
-                    stream.toExternalResource().use {
-                        group.sendMessage(group.uploadAudio(it))
+                when (this) {
+                    is GroupMessageEvent -> {
+                        if (stream.available() > Config.uploadSize) {
+                            stream.toExternalResource().use { group.files.uploadNewFile("generate.mp3", it) }
+                        } else {
+                            stream.toExternalResource().use {
+                                group.sendMessage(group.uploadAudio(it))
+                            }
+                        }
                     }
+
+                    is FriendMessageEvent -> {
+                        if (stream.available() > Config.uploadSize) {
+                            friend.sendMessage("文件过大无法上传")
+                        } else {
+                            stream.toExternalResource().use {
+                                friend.sendMessage(friend.uploadAudio(it))
+                            }
+                        }
+                    }
+
+                    else -> throw Exception("打咩")
                 }
+
             }
         }
     }
@@ -143,11 +219,31 @@ object MidiProduce : KotlinPlugin(
 }
 
 object Config : AutoSavePluginConfig("config") {
+
+    @ValueDescription("ffmpeg 转换命令")
+    val ffmpegConvertCommand by value("ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}")
+    @ValueDescription("timidity 转换命令")
+    val timidityConvertCommand by value("timidity {{input}} -Ow -o {{output}}")
+
+    @ValueDescription("silk 比特率(吧")
+    val silkBitsRate by value(24000)
+
+    @ValueDescription("格式转换输出 可选的有: \n" +
+            "internal->java-lame(默认)\n" +
+            "internal->java-lame->silk4j\n" +
+            "timidity->ffmpeg\n" +
+            "timidity->ffmpeg->silk4j\n" +
+            "timidity->java-lame\n" +
+            "timidity->java-lame->silk4j\n"
+    )
+    val formatMode by value("internal->java-lame")
     @ValueDescription("宏是否启用严格模式")
     val macroUseStrictMode by value(true)
     @ValueDescription("是否启用调试")
     val debug by value(true)
-    @ValueDescription("生成 mp3 的质量")
+    @ValueDescription("是否启用空格替换")
+    val isBlankReplaceWith0 by value(true)
+    @ValueDescription("量化深度 理论上越大生成 mp3 的质量越好, java-lame 给出的值是 256")
     val quality by value(64)
     @ValueDescription("超过这个大小则自动改为文件上传")
     val uploadSize by value(1153433L)
@@ -155,7 +251,7 @@ object Config : AutoSavePluginConfig("config") {
     val help by value("""
 # 命令格式 (一个命令代表一条轨道)
 >bpm[;mode;pitch]>音名序列|简谱序列
-bpm: 速度, 必选, 格式是: 数字+b, 如 120b, 默认可以用 g 或者 f 代替
+bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
@@ -164,6 +260,8 @@ pitch: 音域(音高), 可选, 默认为 4
 >g>1155665  4433221  5544332  5544332
 等同于
 >g>ccggaag+ffeeddc+ggffeed+ggffeed
+等同于
+>g>c~g~^~v+f~v~v~v+(repeat 2:g~v~v~v+) (酌情使用
 
 # 公用规则 (如无特殊说明均使用在唱名或音名后, 并可叠加使用)
  # : 升一个半音, 使用在音名或唱名前
@@ -173,12 +271,12 @@ pitch: 音域(音高), 可选, 默认为 4
  . : 时值变为原来的一点五倍
  : : 两个以上音符组成一个和弦
  ~ : 克隆上一个音符
- ^ : 克隆上一个音符, 并升高1度
- v : 克隆上一个音符, 并降低1度
+ ^ : 克隆上一个音符, 并升高 1 度
+ v : 克隆上一个音符, 并降低 1 度
  ↑ : 升高一个八度
  ↓ : 降低一个八度
  & : 还原符号
-类似的用法还有m-w, n-u, i-!, q-p, s-z,升高或降低度数在^-v的基础上逐步递增或递减
+类似的用法还有 m-w, n-u, i-!, q-p, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
 
 # 如果是音名序列则以下规则生效
 a~g: A4~G4

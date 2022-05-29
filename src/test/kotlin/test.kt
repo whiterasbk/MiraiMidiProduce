@@ -1,18 +1,10 @@
 package bot.music.whiter
 
-import io.ktor.client.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
-import io.ktor.http.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
-import okhttp3.ResponseBody
-import whiter.music.mider.dsl.play
-import whiter.music.mider.practise.absolutepitch.practise1
-import java.net.URL
-import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.EmptyCoroutineContext
-import kotlin.coroutines.coroutineContext
+import java.io.File
+import javax.sound.sampled.AudioFormat
+import javax.sound.sampled.AudioSystem
+import javax.sound.sampled.DataLine
+import javax.sound.sampled.SourceDataLine
 
 
 fun main(args: Array<String>) {
@@ -55,25 +47,49 @@ fun main(args: Array<String>) {
 //    val f = Regex("[c-gC-GaA]").find("1b1b5566#50O 343vsss;l")
 //    println(f?.value)
 
-    val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?)>")
-    val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
+//    val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?)>")
+//    val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
+//
+//    val msg = """
+//        >g>123
+//        >g>abc
+//        >g>5666
+//        >f>89
+//        >f;A>WW
+//    """
+//
+//    val noteLists = msg.split(startRegex).toMutableList()
+//    noteLists.removeFirst()
+//    val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
+//
+//    noteLists.forEachIndexed { index, content ->
+//        val config = configParts[index]
+//        println("'$content': $config, $index")
+//    }
 
-    val msg = """
-        >g>123
-        >g>abc
-        >g>5666
-        >f>89
-        >f;A>WW
-    """
+    println("ffmpeg".execute(charset = "gbk"))
 
-    val noteLists = msg.split(startRegex).toMutableList()
-    noteLists.removeFirst()
-    val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
 
-    noteLists.forEachIndexed { index, content ->
-        val config = configParts[index]
-        println("'$content': $config, $index")
-    }
+
+//    val file = File("debug-sandbox/data/bot.music.whiter.MidiProduce/tmp/mirai_audio_pcm_1653845068124.pcm")
+    // val s = AudioSystem.getAudioInputStream(file)
+//    var offset = 0
+//    val bufferSize = file.length().toInt()
+//    val audioData = ByteArray(bufferSize)
+//
+//    println(bufferSize)
+//
+//    val af = AudioFormat(44100f, 16, 2, true, false)
+//    val info = DataLine.Info(SourceDataLine::class.java, af, bufferSize)
+//    val sdl = AudioSystem.getLine(info) as SourceDataLine
+//    sdl.open(af)
+//    sdl.start()
+//
+//    while (offset < audioData.size) {
+//        offset += sdl.write(audioData, offset, bufferSize)
+//    }
+
+
 
 //    play {
 //        defaultNoteDuration = 1
