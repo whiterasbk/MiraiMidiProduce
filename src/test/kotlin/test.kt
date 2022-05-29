@@ -52,9 +52,28 @@ fun main(args: Array<String>) {
 //        println(res.readText())
 //    }
 
-    val f = Regex("[c-gC-GaA]").find("1b1b5566#50O 343vsss;l")
-    println(f?.value)
+//    val f = Regex("[c-gC-GaA]").find("1b1b5566#50O 343vsss;l")
+//    println(f?.value)
 
+    val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?)>")
+    val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
+
+    val msg = """
+        >g>123
+        >g>abc
+        >g>5666
+        >f>89
+        >f;A>WW
+    """
+
+    val noteLists = msg.split(startRegex).toMutableList()
+    noteLists.removeFirst()
+    val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
+
+    noteLists.forEachIndexed { index, content ->
+        val config = configParts[index]
+        println("'$content': $config, $index")
+    }
 
 //    play {
 //        defaultNoteDuration = 1

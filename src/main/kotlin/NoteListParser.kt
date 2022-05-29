@@ -490,7 +490,7 @@ interface InMusicScore: Cloneable {
     }
 }
 
-private class Chord(vararg firstNotes: Note) : InMusicScore {
+class Chord(vararg firstNotes: Note) : InMusicScore {
 
     init {
         if (firstNotes.isEmpty()) throw Exception("a chord needs notes to buildup")
@@ -498,9 +498,9 @@ private class Chord(vararg firstNotes: Note) : InMusicScore {
 
     val notes = firstNotes.toMutableList()
     val rootNote get() = notes[0]
-    val secondNote get() = notes[1]
-    val thirdNote get() = notes[2]
-    val forthNote get() = notes[3]
+    // val secondNote get() = notes[1]
+    // val thirdNote get() = notes[2]
+    // val forthNote get() = notes[3]
     val rest: List<Note> get() = notes.subList(1, notes.size)
     override val duration: InMusicScore.DurationDescribe = rootNote.duration
 
@@ -524,7 +524,7 @@ private class Chord(vararg firstNotes: Note) : InMusicScore {
     }
 }
 
-private class Rest(override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe()) : InMusicScore {
+class Rest(override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe()) : InMusicScore {
     override fun clone(): Rest {
         return Rest(duration.clone())
     }
@@ -532,7 +532,7 @@ private class Rest(override val duration: InMusicScore.DurationDescribe = InMusi
     override fun toString(): String = "[Rest|$duration]"
 }
 
-private class Note(
+class Note(
     var code: Int,
     override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(),
     val velocity: Int = 100,
@@ -584,17 +584,17 @@ private class Note(
         return Note(code, duration.clone())
     }
 
-    override fun toString(): String = "[$code>${noteNameFromCode(code)}$pitch|$duration|$velocity]"
+    override fun toString(): String = "[$code=${noteNameFromCode(code)}$pitch|$duration|$velocity]"
 }
 
-private class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4) {
+data class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4) {
 
     companion object {
         fun fromNote(note: Note): SimpleNoteDescriber {
             return SimpleNoteDescriber(getNoteName(note), note.duration.value, note.pitch)
         }
 
-        fun getNoteName(note: Note): String {
+        private fun getNoteName(note: Note): String {
             return if (note.isNature) {
                 "!" + noteNameFromCode(note.code).replace("#", "")
             } else noteNameFromCode(note.code)

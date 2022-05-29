@@ -18,6 +18,7 @@ import okhttp3.Dispatcher
 import whiter.music.mider.dsl.MiderDSL
 import java.io.File
 import java.net.URL
+import kotlin.streams.asStream
 
 object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
@@ -50,69 +51,123 @@ object MidiProduce : KotlinPlugin(
     }
 
     private suspend fun GroupMessageEvent.generate() {
-        matchRegex(Regex(">((g|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|wex&au)?)>[^>]+")) { msg ->
 
+        val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?)>")
+        val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
+
+        matchRegex(cmdRegex) { msg ->
             logger.info("sounds begin")
 
-            var arrowCount = 0
-            var availCount = 0
-            var defaultBmp = 80
-            var defaultPitch = 4
-            var mode = ""
+            val noteLists = msg.split(startRegex).toMutableList()
+            noteLists.removeFirst()
+            val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
 
-            msg.forEach {
-                if (arrowCount >= 2) return@forEach
-                if (it == '>') arrowCount ++
-                availCount ++
-            }
+            val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
+                noteLists.forEachIndexed { index, content ->
+                    track {
+                        var mode = ""
+                        var defaultPitch = 4
+                        defaultNoteDuration = 1
 
-            val noteList = msg.substring(availCount, msg.length)//.replace(Regex("\\s*"), "")
-            val configPart = msg.substring(0, availCount).replace(">", "").split(";")
+                        configParts[index].split(";").forEach {
+                            if (it.matches(Regex("\\d+b"))) {
+                                bpm = it.replace("b", "").toInt()
+                            } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
+                                mode = it
+                            } else if (it.matches(Regex("\\d"))) {
+                                defaultPitch = it.toInt()
+                            } else if (it.matches(Regex("vex|wex&au"))) {
+                                // todo 渲染乐谱
+                            }
+                        }
 
-            configPart.forEach {
-                if (it.matches(Regex("\\d+b"))) {
-                    defaultBmp = it.replace("b", "").toInt()
-                } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
-                    mode = it
-                } else if (it.matches(Regex("\\d"))) {
-                    defaultPitch = it.toInt()
-                } else if (it.matches(Regex("vex|wex&au"))) {
-                    // todo 渲染乐谱
+                        val sequence = macro(content, MacroConfiguration {
+                            loggerInfo { logger.info(it) }
+                            loggerError { logger.error(it) }
+                            fetchMethod {
+                                if (it.startsWith("file://"))
+                                    resolveDataFile(it.replace("file://", "")).readText()
+                                else
+                                    URL(it).openStream().reader().readText()
+                            }
+                        })
+
+                        val isStave = Regex("[c-gC-GaA]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
+
+                        val rendered = toInMusicScoreList(sequence.let {
+                            if (isStave) it else
+                                it.replace(Regex("( {2}| \\| )"),"0")
+                            },
+                            isStave = isStave,
+                            pitch = defaultPitch, useMacro = false)
+
+                        ifUseMode(mode) { !toMiderStanderNoteString(rendered) }
+
+                        // 渲染 乐谱
+
+                        ifDebug { logger.info("track: ${index + 1}"); debug() }
+                    }
+
                 }
             }
 
-            val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
-                bpm = defaultBmp
-                defaultNoteDuration = 1
+//            var arrowCount = 0
+//            var availCount = 0
+//
+//
+//            msg.forEach {
+//                if (arrowCount >= 2) return@forEach
+//                if (it == '>') arrowCount ++
+//                availCount ++
+//            }
+//
+//            val noteList = msg.substring(availCount, msg.length)//.replace(Regex("\\s*"), "")
+//            val configPart = msg.substring(0, availCount).replace(">", "").split(";")
+//
+//            configPart.forEach {
+//                if (it.matches(Regex("\\d+b"))) {
+//                    defaultBmp = it.replace("b", "").toInt()
+//                } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
+//                    mode = it
+//                } else if (it.matches(Regex("\\d"))) {
+//                    defaultPitch = it.toInt()
+//                } else if (it.matches(Regex("vex|wex&au"))) {
+//                    // todo 渲染乐谱
+//                }
+//            }
 
-                val sequence = macro(noteList, MacroConfiguration {
-                    loggerInfo { logger.info(it) }
-                    loggerError { logger.error(it) }
-                    fetchMethod {
-                        if (it.startsWith("file://"))
-                            resolveDataFile(it.replace("file://", "")).readText()
-                        else
-                            URL(it).openStream().reader().readText()
-                    }
-                })
-
-                //.matches(Regex("[0-9.\\s-+*/|↑↓i!#b&:~^vmwunpqsz]+"))
-
-                val isStave = Regex("[c-gC-GaA]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
-
-                val rendered = toInMusicScoreList(sequence.let {
-                        if (isStave) it else
-                            it.replace(Regex("( {2}| \\| )"),"0")
-                    },
-                    isStave = isStave,
-                    pitch = defaultPitch, useMacro = false)
-
-                ifUseMode(mode) { !toMiderStanderNoteString(rendered) }
-
-                // 渲染 乐谱
-
-                ifDebug { debug() }
-            }
+//            val stream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality) {
+//                bpm = defaultBmp
+//                defaultNoteDuration = 1
+//
+//                val sequence = macro(noteList, MacroConfiguration {
+//                    loggerInfo { logger.info(it) }
+//                    loggerError { logger.error(it) }
+//                    fetchMethod {
+//                        if (it.startsWith("file://"))
+//                            resolveDataFile(it.replace("file://", "")).readText()
+//                        else
+//                            URL(it).openStream().reader().readText()
+//                    }
+//                })
+//
+//                //.matches(Regex("[0-9.\\s-+*/|↑↓i!#b&:~^vmwunpqsz]+"))
+//
+//                val isStave = Regex("[c-gC-GaA]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
+//
+//                val rendered = toInMusicScoreList(sequence.let {
+//                        if (isStave) it else
+//                            it.replace(Regex("( {2}| \\| )"),"0")
+//                    },
+//                    isStave = isStave,
+//                    pitch = defaultPitch, useMacro = false)
+//
+//                ifUseMode(mode) { !toMiderStanderNoteString(rendered) }
+//
+//                // 渲染 乐谱
+//
+//                ifDebug { debug() }
+//            }
 
             if (stream.available() > Config.uploadSize) {
                 stream.toExternalResource().use { group.files.uploadNewFile("generate.mp3", it) }
