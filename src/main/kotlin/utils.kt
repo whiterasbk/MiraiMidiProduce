@@ -47,6 +47,7 @@ fun String.runCommand(workingDir: File, prefix: String = "cmd-", inPipe: Boolean
 fun midi2mp3Stream(USE_VARIABLE_BITRATE: Boolean = false, GOOD_QUALITY_BITRATE: Int = 256, block: MiderDSL.() -> Any): ByteArrayInputStream {
 
     val midiFile = fromDsl(block)
+
     val audioInputStream = AudioSystem.getAudioInputStream(midiFile.inStream())
 
     val encoder = LameEncoder(
@@ -159,5 +160,23 @@ fun previousNoteIntervalInMajorScale(code: Int): Int {
     }
 }
 
+fun Long.autoTimeUnit(): String {
+    return if (this < 1000) {
+        "${this}ms"
+    } else if (this in 1000..59999) {
+        "${ String.format("%.2f", this.toFloat() / 1000) }s"
+    } else {
+        "${ this / 60_000 }m${ (this % 60_000) / 1000 }s"
+    }
+}
 
+inline fun time(block: () -> Unit) {
+    if (Config.debug) {
+        val startCountingTime = System.currentTimeMillis()
+        block()
+        val useTime = System.currentTimeMillis() - startCountingTime
+
+        MidiProduce.logger.info("生成用时: ${useTime.autoTimeUnit()}")
+    }
+}
 

@@ -42,8 +42,8 @@ fun toMiderStanderNoteString(list: List<InMusicScore>): String {
 fun macro(seq: String, config: MacroConfiguration = MacroConfiguration()): String {
     if ('(' !in seq || ')' !in seq) return seq
 //    val innerScope = mutableMapOf<String, String>()
-    val outerScope = mutableMapOf<String, String>()
-    val macroScope = mutableMapOf<String, Pair<List<String>, String>>()
+    val outerScope = config.outerScope
+    val macroScope = config.macroScope
 //    val replacePattern = Regex("replace\\s*:\\s*[^>]+")
 //    val replaceWith = mutableListOf<MutableList<String>>()
 
@@ -89,14 +89,12 @@ fun macro(seq: String, config: MacroConfiguration = MacroConfiguration()): Strin
             if (macroScope.contains(name)) {
                 val params = macroScope[name]!!.first
                 var body = macroScope[name]!!.second
-
                 params.forEach {
                     body = body.replace("@[$it]", if (arguments.isEmpty()) {
                         config.logger.error(Exception("missing param: $it"))
                         ""
                     } else arguments.removeFirst())
                 }
-
                 body
             } else {
                 config.logger.error(Exception("undefined macro: $name"))
@@ -119,6 +117,8 @@ fun macro(seq: String, config: MacroConfiguration = MacroConfiguration()): Strin
             }
             result
         } else if (MacroConfiguration.includePattern.matches(str)) {
+            if (config.recursionCount > config.recursionLimit) throw Exception("stack overflow, the limit is ${config.recursionLimit} while launching this macro")
+            config.recursionCount ++
             macro(config.fetch(str.replace(Regex("include\\s+"), "")), config)
         } else {
             config.logger.error(Exception("unsupported operation in outer: $str"))
@@ -177,7 +177,12 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
     val list = mutableListOf<InMusicScore>()
     val doAfter = mutableListOf<(Char)->Unit>()
 
+    fun checkSuffixModifyAvailable() {
+        if (list.isEmpty()) throw Exception("before modify or clone the note, you should insert at least one\ninput: $seq\nisStave: $isStave")
+    }
+
     fun cloneAndModify(times: Int = 1, isUpper: Boolean = true) {
+        checkSuffixModifyAvailable()
         if (list.last() is Note) {
             if (isUpper)
                 list += list.last().clone().cast<Note>().upperNoteName(times)
@@ -242,6 +247,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
                 if (isStave) {
                     cloneAndModify(4)
                 } else {
+                    checkSuffixModifyAvailable()
                     if (list.last() is Note)
                         list.last().cast<Note>() += 1
                     else if (list.last() is Chord)
@@ -250,6 +256,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             }
 
             '↑' -> {
+                checkSuffixModifyAvailable()
                 if (list.last() is Note)
                     list.last().cast<Note>() += 1
                 else if (list.last() is Chord)
@@ -260,6 +267,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
                 if (isStave) {
                     cloneAndModify(4, false)
                 } else {
+                    checkSuffixModifyAvailable()
                     if (list.last() is Note)
                         list.last().cast<Note>() -= 1
                     else if (list.last() is Chord)
@@ -268,6 +276,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             }
 
             '↓' -> {
+                checkSuffixModifyAvailable()
                 if (list.last() is Note)
                     list.last().cast<Note>() -= 1
                 else if (list.last() is Chord)
@@ -276,6 +285,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
 
             in '0'..'9' -> {
                 if (isStave) {
+                    checkSuffixModifyAvailable()
                     if (list.last() is Note)
                         list.last().cast<Note>().pitch = char.code - 48
                     else if (list.last() is Chord)
@@ -311,6 +321,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             }
 
             '\'' -> {
+                checkSuffixModifyAvailable()
                 if (list.last() is Note)
                     list.last().cast<Note>().flap()
                 else if (list.last() is Chord)
@@ -318,6 +329,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             }
 
             '"' -> {
+                checkSuffixModifyAvailable()
                 if (list.last() is Note)
                     list.last().cast<Note>().sharp()
                 else if (list.last() is Chord)
@@ -325,6 +337,8 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             }
 
             ':' -> {
+                if (list.isEmpty()) throw Exception("the root is necessary for creating a chord")
+
                 val chord: Chord = if (list.last() is Note) {
                     val c = Chord(list.removeLast().cast())
                     list += c
@@ -365,7 +379,8 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             '*' -> {
                 doAfter += {
                     if (it in '1'..'9') {
-                        list.removeLast()
+                        if (!isStave)
+                            list.removeLast()
                         for (i in 0 until it.code - 49) {
                             list += list.last().clone()
                         }
@@ -374,14 +389,17 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             }
 
             '+' -> {
+                checkSuffixModifyAvailable()
                 list.last().duration.double
             }
 
             '-' -> {
+                checkSuffixModifyAvailable()
                 list.last().duration.halve
             }
 
             '.' -> {
+                checkSuffixModifyAvailable()
                 list.last().duration.point
             }
         }
@@ -418,11 +436,16 @@ class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
         val ifDefinePattern = Regex("ifdef\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
         val ifNotDefinePattern = Regex("if!def\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
         val repeatPattern = Regex("repeat\\s+(\\d+)\\s*:\\s*[^>]+")
-        val includePattern = Regex("include\\s+(https?|ftp|file)://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]")
+        val includePattern = Regex("include\\s+((https?|ftp|file)://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]")
     }
 
+    var recursionCount = 0 // 递归次数统计
     val logger: LoggerImpl = LoggerImpl()
-    var useStrict = false
+//    var useStrict = false
+    var recursionLimit = 10
+    var outerScope = mutableMapOf<String, String>()
+    var macroScope = mutableMapOf<String, Pair<List<String>, String>>()
+
     var fetch: (String) -> String = {
         if (it.startsWith("file://"))
             File(it.replace("file://", "")).readText()
@@ -430,6 +453,7 @@ class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
             URL(it).openStream().reader().readText()
         }
     }
+
 
     init {
         build(MacroConfigurationBuilder())
@@ -451,6 +475,15 @@ class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
 
         fun fetchMethod(block: (String)-> String) {
             fetch = block
+        }
+
+        fun setScopes(outer: MutableMap<String, String>, macro: MutableMap<String, Pair<List<String>, String>>) {
+            outerScope = outer
+            macroScope = macro
+        }
+
+        fun recursionLimit(times: Int) {
+            recursionLimit = times
         }
     }
 }
