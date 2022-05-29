@@ -1,8 +1,6 @@
 package bot.music.whiter
 
 import io.github.mzdluo123.silk4j.AudioUtils
-import io.github.mzdluo123.silk4j.LameCoder
-import io.github.mzdluo123.silk4j.NativeLibLoader
 import io.github.mzdluo123.silk4j.SilkCoder
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.data.content
@@ -10,23 +8,15 @@ import net.sourceforge.lame.lowlevel.LameEncoder
 import net.sourceforge.lame.mp3.Lame
 import net.sourceforge.lame.mp3.MPEGMode
 import org.apache.commons.exec.CommandLine
+import org.apache.commons.exec.DefaultExecutor
+import org.apache.commons.exec.ExecuteWatchdog
+import org.apache.commons.exec.PumpStreamHandler
 import whiter.music.mider.dsl.MiderDSL
 import whiter.music.mider.dsl.fromDsl
 import java.io.*
-import java.util.concurrent.TimeUnit
-import javax.sound.sampled.AudioSystem
-import java.io.IOException
-
-import java.io.RandomAccessFile
-import org.apache.commons.exec.PumpStreamHandler
-
-import org.apache.commons.exec.ExecuteWatchdog
-
-import org.apache.commons.exec.DefaultExecutor
-
-import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
 import javax.sound.sampled.AudioInputStream
+import javax.sound.sampled.AudioSystem
 
 
 suspend fun MessageEvent.matchRegex(reg: Regex, block: suspend (String) -> Unit) {

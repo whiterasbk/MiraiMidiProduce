@@ -2,7 +2,7 @@
 
 在线作曲插件
 
-## 安装方法
+# 安装方法
 下载见 `release`
 1. 打开 `plugins` 文件夹
 2. 丢进去
@@ -11,71 +11,15 @@
 ## 使用方法
 
 ```shell
-命令一般格式 
->bpm[;mode][;pitch]>音名序列|唱名序列
-bpm: 速度, 必选, 格式是: 数字+b, 如 120b, 默认可以用 g 代替
-mode: 调式, 可选, 格式是(b/#)调式名, 如Cminor, -Emaj
+# 命令格式 (一个命令代表一条轨道)
+>bpm[;mode][;pitch]>音名序列 | 简谱序列
+bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
+mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
+音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
 
-获取帮助
+# 获取帮助
 >!help>
-```
-
-## 关于音符序列
-
-```
-如果是音名序列则以下规则生效
-a~g: A4~G4
-A~G: A5~G5
-0-9: 手动修改音域
-# : 升一个半音
-$ : 降一个半音
-+ : 时值变为原来的两倍
-- : 时值变为原来的一半
-. : 时值变为原来的一点五倍
-: : 两个以上音符组成一个和弦 (目前有bug, 尽量不要使用)
-~ : 克隆上一个音符
-^ : 克隆上一个音符, 并升高1度
-v : 克隆上一个音符, 并降低1度
-
-+-.这三个符号对简谱序列也生效, 简谱序列暂未支持b和#
-类似的用法还有m-w, n-u, i-!, q-p, s-z,升高或降低度数在^-v的基础上逐步递增或递减
-```
-
-## 示例
-1. KFC 可达鸭
-```shell
->g;-E>g^m+C-wmD+D^m+G-wmE+D^w+C-wmD+DvagaC
-```
-
-2. 生日快乐
-```shell
->88b>d.d- e+v g+ f#++ d.d- e+v a+ v+ d.d- D+b+g+ f#+ e+ C.C- b+ g+^ v+
-```
-
-3. 碎月
-```shell
->85b>F+^B$C6GFG CE$ F DE$Db$ C+ gb$ CE$ FE$ F+ FE$ FB$ G+ + GB$ C6C6B$ C6 G+ GE$ FGFE$ C+ Cb$ C+CE$FE$FG E$
-```
-
-4. 茉莉花
-```shell
->110b>e+em^m~wv+g^v++e+em^m~wv+g^v++g+~~em^+av~++e+d^m+evv+c^v++evvmv+.eg+amg++d+egd^cwv++ ^-c+d+.ec^vwv++
-```
-
-5. bad apple!
-```shell
->100b>ef#gab+ ED b+ e+ b a-- B-- A- gf# ef#ga b+ ag f#ef#g f#--G--F#-e d#f# ef#gab+ ED b+e+ ba--B--A- gf# ef#gab+ ag
-```
-
-6. Jingle Bells
-```shell
->100b>E~~+E~~+EmC^^++F~~+Fv~+Ev~^ D+G+E~~+E~~+EmC^^++F~~+Fv~~m~vDv++
-```
-
-7. 小星星
-```shell
->g>1155665  4433221  5544332  5544332
 ```
 
 ## todo list
@@ -84,16 +28,140 @@ v : 克隆上一个音符, 并降低1度
 - [ ] 渲染乐谱
 - [ ] 识别乐谱并转化为音符
 
+## 关于音符序列
+
+```
+# 公用规则 (如无特殊说明均使用在唱名或音名后, 并可叠加使用)
+ # : 升一个半音, 使用在音名或唱名前
+ ${'$'} : 降一个半音, 使用在音名或唱名前
+ + : 时值变为原来的两倍
+ - : 时值变为原来的一半
+ . : 时值变为原来的一点五倍
+ : : 两个以上音符组成一个和弦
+ ~ : 克隆上一个音符
+ ^ : 克隆上一个音符, 并升高 1 度
+ v : 克隆上一个音符, 并降低 1 度
+ ↑ : 升高一个八度
+ ↓ : 降低一个八度
+ & : 还原符号
+类似的用法还有 m-w, n-u, i-!, q-p, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
+
+# 如果是音名序列则以下规则生效
+a~g: A4~G4
+A~G: A5~G5
+ O : 二分休止符 
+ o : 四分休止符 
+0-9: 手动修改音域
+
+# 如果是唱名序列则以下规则生效
+1~7: C4~B4
+ 0 : 四分休止符
+ i : 升高一个八度
+ ! : 降低一个八度
+ b : 降低一个半音, 使用在唱名前
+ * : 后接一个一位数字表示重复次数
+ 
+# 宏
+目前可用的宏有
+1. (def symbol=note sequence) 定义一个音符序列
+2. (def symbol:note sequence) 定义一个音符序列, 并在此处展开
+3. (=symbol) 展开 symbol 对应音符序列
+4. (include path) 读取 path 代表的资源并展开, 如果是文件默认目录是插件的数据文件夹
+5. (repeat time: note sequence) 将音符序列重复 times 次
+6. (ifdef symbol: note sequence) 如果定义了 symbol 则展开
+7. (if!def symbol: note sequence) 如果未定义 symbol 则展开
+8. (macro name param1[,params]: note sequence @[param1]) 定义宏
+9. (!name arg1[,arg2]) 展开宏
+目前宏均不可嵌套使用
+```
+
+## 示例
+
+```text
+1. 小星星
+>g>1155665  4433221  5544332  5544332
+等同于
+>g>ccggaag+ffeeddc+ggffeed+ggffeed
+等同于
+>g>c~g~^~v+f~v~v~v+(repeat 2:g~v~v~v+) (酌情使用
+
+2. KFC 可达鸭
+>g;bE>g^m+C-wmD+D^m+G-wmE+D^w+C-wmD+DvagaC
+
+3. 碎月 
+>85b>F+^$BC6GFG C$E F D$ED$b C+ g$b C$E F$E F+ F$E F$B G++ G$B C6C6$B C6 G+ G$E FGF$E C+ C$b C+C$EF$EFG $E
+等同于
+>85b;Cmin>F+^BC6GFG CE F DEDb C+ gb CE FE F+ FE FB G++ GB C6C6B C6 G+ GE FGFE C+ Cb C+CEFEFG E
+
+4. 生日快乐
+>88b>d.d- e+v g+ #f++ d.d- e+v a+ v+ d.d- D+b+g+ #f+ e+ C.C- b+ g+^ v+
+
+5. 茉莉花
+>110b>e+em^m~wv+g^v++e+em^m~wv+g^v++g+~~em^+av~++e+d^m+evv+c^v++evvmv+.eg+amg++d+egd^cwv++ ^-c+d+.ec^vwv++
+
+6. bad apple!
+>100b>e#fgab+ ED b+ e+ b a-- B-- A- g#f e#fga b+ ag #fe#fg #f--G--#F-e #d#f e#fgab+ ED b+e+ ba--B--A- g#f e#fgab+ ag
+
+7. Jingle Bells
+>100b>E~~+E~~+EmC^^++F~~+Fv~+Ev~^ D+G+E~~+E~~+EmC^^++F~~+Fv~~m~vDv++
+```
 
 ## 配置
 ```yaml
-quality: 64 # 生成的音频的质量
-uploadSize: 1153433 # 音频超过这个大小时自动改为文件上传
+# ffmpeg 转换命令
+ffmpegConvertCommand: 'ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}'
+# timidity 转换命令
+timidityConvertCommand: 'timidity {{input}} -Ow -o {{output}}'
+# silk 比特率(吧
+silkBitsRate: 24000
+# 格式转换输出 可选的有:
+# internal->java-lame(默认)
+# internal->java-lame->silk4j
+# timidity->ffmpeg
+# timidity->ffmpeg->silk4j
+# timidity->java-lame
+# timidity->java-lame->silk4j
+formatMode: 'internal->java-lame'
+# 宏是否启用严格模式
+macroUseStrictMode: true
+# 是否启用调试
+debug: true
+# 是否启用空格替换
+isBlankReplaceWith0: true
+# 量化深度 理论上越大生成 mp3 的质量越好, java-lame 给出的值是 256
+quality: 64
+# 超过这个大小则自动改为文件上传
+uploadSize: 1153433
 ```
 
 ## 注意
- - 当序列满足 `[0-9.\s-+*/|]+` 时会自动判定为唱名序列, 否则为音名序列
  - 简谱序列中 `\s{2}` 和 `\s\|\s` 会被自动替换成 `0` 也就是休止符
- - 仅群聊有效
- - 电脑端听不了
+ - 如果最后输出的格式是 `silk` 那么好友和群聊都有效, 如果是 `mp3` 则仅群聊有效, 好友会出现感叹号
+ - `pc` 端听不了, `mac` 据说可以, 哪位富婆可以给咱买一台测试一下(
  - 命令还未加入权限
+ - 生成 `silk` 格式会比 `mp3` 音质低得多
+
+## 关于构建
+
+`clone` 到本地后修改 `build.gradle.kts` 中的 `uesrname` 和 `password` 为自己的即可成功构建
+
+## 关于 timidity 和 ffmpeg
+在服务器环境插件可能会由于缺少硬件或驱动支持无法生成语音, 可以尝试安装 `timidity` 和 `ffmpeg` 解决
+
+具体的安装可以参考 [这篇](https://www.bbsmax.com/A/ZOJPo6xEzv/)
+
+这里提供一个 `sf2` 的 [音色库](https://cowtransfer.com/s/2f42efd92be448)
+
+安装完成以后确保 `timidity` 和 `ffmpeg` 位于环境变量中, 或者也可以修改 `ffmpegConvertCommand` 和 `timidityConvertCommand`
+
+最后修改 `formatMode` 即可使用 `timidity` 和 `ffmpeg` 生成语音
+
+## 关于修改音色
+
+目前只能通过安装 `timidity` 来实现
+
+## release 中的多个发行包
+
+带 `.silkf4` 的是打包了 [silk4j](https://github.com/mzdluo123/silk4j) 的包
+
+如果确定不需要使用转换 `silk` 的功能可以直接下载不带后缀版本的包
