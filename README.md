@@ -115,7 +115,7 @@ A~G: A5~G5
 >g;6>000000(=tiger)
 >g;7>00000000(=tiger)
 ```
-更多示例见 [awesome-melody]()
+更多示例见 [awesome-melody](https://github.com/whiterasbk/MiraiMidiProduce/tree/master/awesome-melody)
 
 若想分享自己编写的旋律欢迎提 `pr` 到这个文件夹, **建议使用英文名称**, 后续可能会考虑打包进发布版本供 `include` 使用
 
