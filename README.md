@@ -2,7 +2,7 @@
 
 在线作曲插件
 
-# 安装方法
+## 安装方法
 下载见 `release`
 1. 打开 `plugins` 文件夹
 2. 丢进去
@@ -12,15 +12,18 @@
 
 ```shell
 # 命令格式 (一个命令代表一条轨道)
->bpm[;mode][;pitch]>音名序列 | 简谱序列
+>bpm[;mode][;pitch][;midi]>音名序列 | 唱名序列
 bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
-
+midi: 是否仅上传 midi 文件
 # 获取帮助
 >!help>
 ```
+
+## 效果
+![你看到了一张图](https://mirai.mamoe.net/assets/uploads/files/1653475903211-d7c4283d-8163-4079-8c60-11d26468d8b1-image.png)
 
 ## todo list
 
@@ -104,13 +107,41 @@ A~G: A5~G5
 
 7. Jingle Bells
 >100b>E~~+E~~+EmC^^++F~~+Fv~+Ev~^ D+G+E~~+E~~+EmC^^++F~~+Fv~~m~vDv++
+
+8. 两只老虎 卡农
+>g;3>(def tiger:1231 1231 3450 3450 5-6-5-4-31 5-6-5-4-31 15!10 15!10)
+>g;4>00(=tiger)
+>g;5>0000(=tiger)
+>g;6>000000(=tiger)
+>g;7>00000000(=tiger)
+```
+
+## 和弦
+
+轨道内可以使用`:`构建 
+```
+>g>c:e:g 构建大三和弦
+```
+也可以写成下面的等价形式
+```
+>g>c:m:m (m 是将前一个音符克隆并升高两度 
+```
+同时使用`:`和 功能类似 `m`, `^`等的字符 则 `#` 和 `$` 将不起作用, 可以使用 `#` 和 `$` 的等价后缀修改符 `"` 和 `'`
+```
+>g>c:m:#m (# 号将不起作用
+>g>c:m:m" (这种形式能正常解析
+```
+同样支持轨道多轨
+```
+>g>c d e (g 的 pitch 默认为 4
+>f>a b c (f 的 pitch 默认为 3, 可以当作低音轨道
 ```
 
 ## 配置
 ```yaml
-# ffmpeg 转换命令
+# ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行
 ffmpegConvertCommand: 'ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}'
-# timidity 转换命令
+# timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行
 timidityConvertCommand: 'timidity {{input}} -Ow -o {{output}}'
 # silk 比特率(吧
 silkBitsRate: 24000
@@ -125,7 +156,9 @@ formatMode: 'internal->java-lame'
 # 宏是否启用严格模式
 macroUseStrictMode: true
 # 是否启用调试
-debug: true
+debug: false
+# 是否启用缓存
+cache: true
 # 是否启用空格替换
 isBlankReplaceWith0: true
 # 量化深度 理论上越大生成 mp3 的质量越好, java-lame 给出的值是 256
@@ -135,11 +168,11 @@ uploadSize: 1153433
 ```
 
 ## 注意
- - 简谱序列中 `\s{2}` 和 `\s\|\s` 会被自动替换成 `0` 也就是休止符
+ - 唱名序列中 `\s{2}` 和 `\s\|\s` 会被自动替换成 `0` 也就是休止符
  - 如果最后输出的格式是 `silk` 那么好友和群聊都有效, 如果是 `mp3` 则仅群聊有效, 好友会出现感叹号
  - `pc` 端听不了, `mac` 据说可以~~哪位富婆可以给咱买一台测试一下(~~
  - 命令还未加入权限
- - 生成 `silk` 格式会比 `mp3` 音质低得多
+ - 好友环境下生成 `silk` 格式会比 `mp3` 音质低得多, 听个响属于是
 
 ## 关于构建
 
@@ -164,4 +197,4 @@ uploadSize: 1153433
 
 带 `bundled-silkf4` 的是打包了 [silk4j](https://github.com/mzdluo123/silk4j) 的包
 
-如果确定不需要使用转换 `silk` 的功能可以直接下载不带后缀版本的包
+若确定不需要使用转换 `silk` 的功能可以直接下载不带后缀版本的包

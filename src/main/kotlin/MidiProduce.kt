@@ -6,14 +6,17 @@ import net.mamoe.mirai.console.data.ValueDescription
 import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
+import net.mamoe.mirai.contact.FileSupported
 import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.globalEventChannel
+import net.mamoe.mirai.message.data.Audio
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
 import whiter.music.mider.dsl.MiderDSL
+import whiter.music.mider.dsl.fromDsl
 import java.io.FileFilter
 import java.io.InputStream
 import java.net.URL
@@ -22,12 +25,13 @@ object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
         id = "bot.music.whiter.MidiProduce",
         name = "MidiProduce",
-        version = "0.1.4",
+        version = "0.1.5",
     ) {
         author("whiterasbk")
     }
 ) {
 
+    private val cache = mutableMapOf<String, Audio>()
     val tmpDir = resolveDataFile("tmp")
 
     override fun onEnable() {
@@ -35,21 +39,43 @@ object MidiProduce : KotlinPlugin(
 
         Config.reload()
 
+        initTmpAndFormatTransfer()
+
+        val process: suspend MessageEvent.() -> Unit = {
+            try {
+                generate()
+                printHelp()
+            } catch (e: Exception) {
+                logger.error(e)
+                subject.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
+            }
+        }
+
+        globalEventChannel().subscribeAlways<GroupMessageEvent>{
+            process()
+        }
+
+        globalEventChannel().subscribeAlways<FriendMessageEvent> {
+            process()
+        }
+    }
+
+    private fun initTmpAndFormatTransfer() {
         if (!tmpDir.exists()) tmpDir.mkdir()
 
         try {
             tmpDir.listFiles(FileFilter {
                 it.extension == "so" ||
-                it.extension == "dll" ||
-                it.extension == "lib" ||
-                it.extension == "mp3" ||
-                it.extension == "silk" ||
-                it.extension == "wave" ||
-                it.extension == "wav" ||
-                it.extension == "amr" ||
-                it.extension == "mid" ||
-                it.extension == "midi" ||
-                it.extension == "pcm"
+                        it.extension == "dll" ||
+                        it.extension == "lib" ||
+                        it.extension == "mp3" ||
+                        it.extension == "silk" ||
+                        it.extension == "wave" ||
+                        it.extension == "wav" ||
+                        it.extension == "amr" ||
+                        it.extension == "mid" ||
+                        it.extension == "midi" ||
+                        it.extension == "pcm"
             })?.forEach {
                 it.delete()
             }
@@ -74,26 +100,6 @@ object MidiProduce : KotlinPlugin(
         if (Config.formatMode.contains("ffmpeg") && Config.ffmpegConvertCommand.isBlank()) {
             logger.error("ffmpeg 命令未配置, 将无法生成语音(mp3)")
         }
-
-        globalEventChannel().subscribeAlways<GroupMessageEvent> {
-            try {
-                generate()
-                printHelp()
-            } catch (e: Exception) {
-                logger.error(e)
-                group.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
-            }
-        }
-
-        globalEventChannel().subscribeAlways<FriendMessageEvent> {
-            try {
-                generate()
-                printHelp()
-            } catch (e: Exception) {
-                logger.error(e)
-                friend.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
-            }
-        }
     }
 
     private suspend fun MessageEvent.printHelp() {
@@ -104,107 +110,137 @@ object MidiProduce : KotlinPlugin(
 
     private suspend fun MessageEvent.generate() {
 
-        val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?)>")
+        val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?(;midi)?)>")
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
         matchRegex(cmdRegex) { msg ->
-            time {
-                logger.info("sounds begin")
+            if (Config.cache && msg in cache) {
+                cache[msg]?.let {
+                    ifDebug("send from cache")
+                    subject.sendMessage(it)
+                } ?: throw Exception("启用了缓存但是缓存中没有对应的语音消息")
+            } else {
+                time {
+                    logger.info("sounds begin")
 
-                val noteLists = msg.split(startRegex).toMutableList()
-                noteLists.removeFirst()
-                val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
+                    val noteLists = msg.split(startRegex).toMutableList()
+                    noteLists.removeFirst()
+                    val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
 
-                val stream: InputStream = generateStreamByFormatMode {
+                    val isUploadMidi = "midi" in configParts.joinToString(" ")
 
-                    val macroConfig = MacroConfiguration {
+                    val dslBlock: MiderDSL.() -> Unit = {
 
-                        recursionLimit(50)
+                        val macroConfig = MacroConfiguration {
 
-                        loggerInfo { logger.info(it) }
-                        loggerError {
-                            if (Config.macroUseStrictMode) throw it else logger.error(it)
+                            recursionLimit(Config.recursionLimit)
+
+                            loggerInfo { logger.info(it) }
+                            loggerError {
+                                if (Config.macroUseStrictMode) throw it else logger.error(it)
+                            }
+
+                            fetchMethod {
+                                if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
+                                    URL(it).openStream().reader().readText()
+                                else
+                                    resolveDataFile(it.replace("file:", "")).readText()
+                            }
                         }
+                        val changeBpm = { tempo: Int -> bpm = tempo }
 
-                        fetchMethod {
-                            if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
-                                URL(it).openStream().reader().readText()
-                            else
-                                resolveDataFile(it.replace("file:", "")).readText()
+                        noteLists.forEachIndexed { index, content ->
+
+                            track {
+                                var mode = ""
+                                var defaultPitch = 4
+
+                                defaultNoteDuration = 1
+
+                                configParts[index].split(";").forEach {
+                                    if (it == "f") {
+                                        defaultPitch = 3
+                                    } else if (it.matches(Regex("\\d+b"))) {
+                                        changeBpm(it.replace("b", "").toInt())
+                                    } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
+                                        mode = it
+                                    } else if (it.matches(Regex("\\d"))) {
+                                        defaultPitch = it.toInt()
+                                    } else if (it.matches(Regex("vex|wex&au"))) {
+                                        // todo 渲染乐谱
+                                    }
+                                }
+
+                                val sequence = macro(content, macroConfig)
+
+                                val isStave =
+                                    Regex("[c-gaA-G]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
+
+                                val rendered = toInMusicScoreList(
+                                    sequence.let {
+                                        if (isStave && Config.isBlankReplaceWith0) it else
+                                            it.trim().replace(Regex("( {2}| \\| )"), "0")
+                                    },
+                                    isStave = isStave,
+                                    pitch = defaultPitch, useMacro = false
+                                )
+
+                                ifUseMode(mode) {
+                                    val stander = toMiderStanderNoteString(rendered)
+                                    if (stander.isNotBlank()) !stander
+                                }
+
+                                // 渲染 乐谱
+
+                                ifDebug { logger.info("track: ${index + 1}"); debug() }
+                            }
+
                         }
                     }
-                    val changeBpm = { tempo: Int -> bpm = tempo }
 
-                    noteLists.forEachIndexed { index, content ->
+                    val stream: InputStream =
+                        if (isUploadMidi) fromDsl(dslBlock).inStream() else generateAudioStreamByFormatMode(dslBlock)
 
-                        track {
-                            var mode = ""
-                            var defaultPitch = 4
-
-                            defaultNoteDuration = 1
-
-                            configParts[index].split(";").forEach {
-                                if (it == "f") {
-                                    defaultPitch = 3
-                                } else if (it.matches(Regex("\\d+b"))) {
-                                    changeBpm(it.replace("b", "").toInt())
-                                } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
-                                    mode = it
-                                } else if (it.matches(Regex("\\d"))) {
-                                    defaultPitch = it.toInt()
-                                } else if (it.matches(Regex("vex|wex&au"))) {
-                                    // todo 渲染乐谱
+                    if (isUploadMidi && subject is FileSupported)
+                        stream.toExternalResource().use {
+                            (subject as FileSupported).files.uploadNewFile(
+                                "generate-${System.currentTimeMillis()}.mid",
+                                it
+                            )
+                        }
+                    else when (this) {
+                        is GroupMessageEvent -> {
+                            if (stream.available() > Config.uploadSize) {
+                                stream.toExternalResource().use {
+                                    group.files.uploadNewFile(
+                                        "generate-${System.currentTimeMillis()}.mp3",
+                                        it
+                                    )
+                                }
+                            } else {
+                                stream.toExternalResource().use {
+                                    val audio = group.uploadAudio(it)
+                                    group.sendMessage(audio)
+                                    if (Config.cache) cache[msg] = audio
                                 }
                             }
-
-                            val sequence = macro(content, macroConfig)
-
-                            val isStave = Regex("[c-gaA-G]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
-
-                            val rendered = toInMusicScoreList(sequence.let {
-                                if (isStave && Config.isBlankReplaceWith0) it else
-                                    it.trim().replace(Regex("( {2}| \\| )"),"0")
-                                },
-                                isStave = isStave,
-                                pitch = defaultPitch, useMacro = false)
-
-                            ifUseMode(mode) {
-                                val stander = toMiderStanderNoteString(rendered)
-                                if (stander.isNotBlank()) !stander
-                            }
-
-                            // 渲染 乐谱
-
-                            ifDebug { logger.info("track: ${index + 1}"); debug() }
                         }
 
+                        is FriendMessageEvent -> {
+                            if (stream.available() > Config.uploadSize) {
+                                friend.sendMessage("生成的语音过大且bot不能给好友发文件")
+                            } else {
+                                stream.toExternalResource().use {
+                                    val audio = friend.uploadAudio(it)
+                                    friend.sendMessage(audio)
+                                    if (Config.cache) cache[msg] = audio
+                                }
+                            }
+                        }
+
+                        else -> throw Exception("打咩")
                     }
                 }
-
-                when (this) {
-                    is GroupMessageEvent -> {
-                        if (stream.available() > Config.uploadSize) {
-                            stream.toExternalResource().use { group.files.uploadNewFile("generate.mp3", it) }
-                        } else {
-                            stream.toExternalResource().use {
-                                group.sendMessage(group.uploadAudio(it))
-                            }
-                        }
-                    }
-
-                    is FriendMessageEvent -> {
-                        if (stream.available() > Config.uploadSize) {
-                            friend.sendMessage("文件过大无法上传")
-                        } else {
-                            stream.toExternalResource().use {
-                                friend.sendMessage(friend.uploadAudio(it))
-                            }
-                        }
-                    }
-
-                    else -> throw Exception("打咩")
-                }
-
             }
         }
     }
@@ -220,13 +256,17 @@ object MidiProduce : KotlinPlugin(
 
 object Config : AutoSavePluginConfig("config") {
 
-    @ValueDescription("ffmpeg 转换命令")
+    @ValueDescription("ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行")
     val ffmpegConvertCommand by value("ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}")
-    @ValueDescription("timidity 转换命令")
+    @ValueDescription("timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行")
     val timidityConvertCommand by value("timidity {{input}} -Ow -o {{output}}")
 
+    @ValueDescription("include 最大深度")
+    val recursionLimit by value(50)
     @ValueDescription("silk 比特率(吧")
     val silkBitsRate by value(24000)
+    @ValueDescription("是否启用缓存")
+    val cache by value(true)
 
     @ValueDescription("格式转换输出 可选的有: \n" +
             "internal->java-lame(默认)\n" +
@@ -250,11 +290,12 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("帮助信息 (更新版本时记得要删掉这一行)")
     val help by value("""
 # 命令格式 (一个命令代表一条轨道)
->bpm[;mode][;pitch]>音名序列|简谱序列
+>bpm[;mode][;pitch][;midi]>音名序列 | 唱名序列
 bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
+midi: 是否仅上传 midi 文件
 
 # 示例
 >g>1155665  4433221  5544332  5544332

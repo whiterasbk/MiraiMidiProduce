@@ -167,7 +167,7 @@ suspend fun time(block: suspend () -> Unit) {
     } else block()
 }
 
-fun generateStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
+fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
     return when (Config.formatMode) {
         "internal->java-lame->silk4j" -> {
             ifDebug("using: internal->java-lame->silk4j")
