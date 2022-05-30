@@ -110,7 +110,7 @@ object MidiProduce : KotlinPlugin(
 
     private suspend fun MessageEvent.generate() {
 
-        val startRegex = Regex(">((g|f|\\d+b)(;([-+b#]?[A-G](min|maj|major|minor)?))?(;\\d)?(;vex|vex&au)?(;midi)?)>")
+        val startRegex = Regex(">(g|f|\\d+b)((;[-+b#]?[A-G](min|maj|major|minor)?)|(;\\d)|(;vex|vex&au)|(;midi))*>")
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
         matchRegex(cmdRegex) { msg ->
