@@ -179,7 +179,7 @@ uploadSize: 1153433
 
 ## 关于构建
 
-`clone` 到本地后修改 `build.gradle.kts` 中的 `uesrname` 和 `password` 为自己的即可成功构建
+`clone` 到本地后修改 `build.gradle.kts` 中的 `username` 和 `password` 为自己的即可成功构建
 
 ## 关于 timidity 和 ffmpeg
 在服务器环境插件可能会由于缺少硬件或驱动支持无法生成语音, 可以尝试安装 `timidity` 和 `ffmpeg` 解决

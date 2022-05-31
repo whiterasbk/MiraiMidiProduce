@@ -31,6 +31,14 @@ object MidiProduce : KotlinPlugin(
     }
 ) {
 
+    // todo 1. 出场自带 bgm ( 频率
+    // todo 2. 相对音准小测试
+    // todo 3. 隔群发送语音, 寻觅知音 (
+    // todo 4. 增加乐器(
+    // todo 5. 增加力度
+    // todo 6. mider code for js
+    // todo 7. 权限系统, 话说就发个语音有引入命令权限的必要吗 (
+
     private val cache = mutableMapOf<String, Audio>()
     val tmpDir = resolveDataFile("tmp")
 
@@ -294,8 +302,8 @@ object Config : AutoSavePluginConfig("config") {
 bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
+midi: 是否仅上传 midi 文件, 可选
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
-midi: 是否仅上传 midi 文件
 
 # 示例
 >g>1155665  4433221  5544332  5544332
@@ -340,7 +348,7 @@ A~G: A5~G5
 2. (def symbol:note sequence) 定义一个音符序列, 并在此处展开
 3. (=symbol) 展开 symbol 对应音符序列
 4. (include path) 读取 path 代表的资源并展开
-5. (repeat time: note sequence) 将音符序列重复 times 次
+5. (repeat times: note sequence) 将音符序列重复 times 次
 6. (ifdef symbol: note sequence) 如果定义了 symbol 则展开
 7. (if!def symbol: note sequence) 如果未定义 symbol 则展开
 8. (macro name param1[,params]: note sequence @[param1]) 定义宏

@@ -2,8 +2,11 @@ package bot.music.whiter
 
 import whiter.music.mider.dsl.play
 
-
 fun main(args: Array<String>) {
+
+
+
+
 //    play {
 //        !toMiderNoteList("F+^B\$C6GFG CE\$")
 //        debug()
@@ -65,10 +68,10 @@ fun main(args: Array<String>) {
 
 //    println("ffmpeg".execute(charset = "gbk"))
 
-    play {
-        defaultNoteDuration = 2
-        !"O*0.1 A[4,1] D[4,1] B[4,1]"
-    }
+//    play {
+//        defaultNoteDuration = 2
+//        !"O*0.1 A[4,1] D[4,1] B[4,1]"
+//    }
 
 
 //    val file = File("debug-sandbox/data/bot.music.whiter.MidiProduce/tmp/mirai_audio_pcm_1653845068124.pcm")
