@@ -1,11 +1,10 @@
 package bot.music.whiter
 
+import whiter.music.mider.dsl.MiderDSL
 import whiter.music.mider.dsl.play
 
 fun main(args: Array<String>) {
-
-
-
+    MiderDSL.instrument.valueOf("piano")
 
 //    play {
 //        !toMiderNoteList("F+^B\$C6GFG CE\$")

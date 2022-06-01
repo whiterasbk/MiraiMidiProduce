@@ -2,6 +2,9 @@ package bot.music.whiter
 
 import io.github.mzdluo123.silk4j.AudioUtils
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import net.mamoe.mirai.console.data.AutoSavePluginConfig
 import net.mamoe.mirai.console.data.ValueDescription
 import net.mamoe.mirai.console.data.value
@@ -13,8 +16,7 @@ import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.globalEventChannel
-import net.mamoe.mirai.message.data.Audio
-import net.mamoe.mirai.message.data.content
+import net.mamoe.mirai.message.data.*
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
 import whiter.music.mider.dsl.MiderDSL
@@ -41,7 +43,7 @@ object MidiProduce : KotlinPlugin(
     // todo 6. mider code for js
     // todo 7. 权限系统, 话说就发个语音有引入命令权限的必要吗 (
 
-    private val cache = mutableMapOf<String, Audio>()
+    private val cache = mutableMapOf<String, Message>()
     val tmpDir = resolveDataFile("tmp")
 
     override fun onEnable() {
@@ -52,12 +54,30 @@ object MidiProduce : KotlinPlugin(
         initTmpAndFormatTransfer()
 
         val process: suspend MessageEvent.() -> Unit = {
+            var finishFlag = false
+            if (Config.selfMockery) launch {
+                delay(Config.selfMockeryTime)
+                // 开始嘲讽
+                if (!finishFlag) {
+                    subject.sendMessage("...")
+                    delay(50)
+                    val tty = resolveDataFile("2000-years-later.png")
+                    if (tty.exists()) {
+                        tty.toExternalResource().use {
+                            subject.sendMessage(subject.uploadImage(it))
+                        }
+                    } else subject.sendMessage("10 years later.")
+                }
+            }
+
             try {
                 generate()
-                printHelp()
+                oCommandProcess()
             } catch (e: Exception) {
                 logger.error(e)
                 subject.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
+            } finally {
+                finishFlag = true
             }
         }
 
@@ -74,6 +94,13 @@ object MidiProduce : KotlinPlugin(
 
     private fun initTmpAndFormatTransfer() {
         if (!tmpDir.exists()) tmpDir.mkdir()
+
+        // unimportant
+        val tty = resolveDataFile("2000-years-later.png")
+        if (!tty.exists())
+            this.javaClass.classLoader.getResourceAsStream("2000-years-later.png")?.let {
+                tty.writeBytes(it.readAllBytes())
+            } ?: logger.info("can not release 2000-years-later.png")
 
         try {
             tmpDir.listFiles(FileFilter {
@@ -117,24 +144,55 @@ object MidiProduce : KotlinPlugin(
         }
     }
 
-    private suspend fun MessageEvent.printHelp() {
-        if (message.content == ">!help>") {
-            subject.sendMessage(Config.help)
+    private suspend fun MessageEvent.oCommandProcess() {
+        val oCmdRegex = Regex(">!([\\w@=:&%$#\\->]+)>")
+        matchRegex(oCmdRegex) {
+            val content = oCmdRegex.matchEntire(it)!!.groupValues[1]
+            if (content == "help") {
+                subject.sendMessage(Config.help)
+            } else if (content.startsWith("formatMode=")) {
+                when (val mode = content.replace("formatMode=", "")) {
+                    "internal->java-lame->silk4j", "timidity->ffmpeg", "timidity->ffmpeg->silk4j", "internal->java-lame",
+                    "timidity->java-lame", "timidity->java-lame->silk4j", "muse-score", "muse-score->silk4j" -> {
+                        val before = Config.formatMode
+                        Config.formatMode = mode
+                        if (mode.contains("silk4j")) AudioUtils.init(tmpDir)
+                        subject.sendMessage("设置格式转换模式成功, 由 $before 切换为 $mode")
+                    }
+
+                    else -> subject.sendMessage("不支持的格式, 请确认设置的值在 以下列表\n" +
+                            "internal->java-lame\n" +
+                            "internal->java-lame->silk4j,\n" +
+                            "timidity->ffmpeg,\n" +
+                            "timidity->ffmpeg->silk4j,\n" +
+                            "timidity->java-lame,\n" +
+                            "timidity->java-lame->silk4j,\n" +
+                            "muse-score,\n" +
+                            "muse-score->silk4j")
+                }
+            } else if (content == "clear-cache") {
+                cache.clear()
+            }
         }
     }
 
     private suspend fun MessageEvent.generate() {
 
-        val startRegex = Regex(">(g|f|\\d+b)((;[-+b#]?[A-G](min|maj|major|minor)?)|(;\\d)|(;img)|(;pdf)|(;mscz)|(;midi))*>")
+        val startRegex = Regex(">(g|f|\\d+b)((;[-+b#]?[A-G](min|maj|major|minor)?)|(;\\d)|(;img)|(;pdf)|(;mscz)|(;midi)|(;i=[a-zA-Z-]+)|(;\\d/\\d))*>")
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
         matchRegex(cmdRegex) { msg ->
-            if (Config.cache && msg in cache) {
+
+            var isRenderingNotation = false
+            var notationType: NotationType? = null
+
+            if (Config.cache && msg in cache && (notationType == NotationType.PNGS || notationType == null)) {
                 cache[msg]?.let {
                     ifDebug("send from cache")
                     subject.sendMessage(it)
                 } ?: throw Exception("启用了缓存但是缓存中没有对应的语音消息")
             } else {
+
                 time {
                     logger.info("sounds begin")
 
@@ -143,8 +201,6 @@ object MidiProduce : KotlinPlugin(
                     val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
 
                     val isUploadMidi = "midi" in configParts.joinToString(" ")
-                    var isRenderingNotation = false
-                    var notationType: NotationType? = null
 
                     val dslBlock: MiderDSL.() -> Unit = {
 
@@ -165,13 +221,15 @@ object MidiProduce : KotlinPlugin(
                             }
                         }
                         val changeBpm = { tempo: Int -> bpm = tempo }
+                        val changeOuterProgram = { ins: String -> program = MiderDSL.instrument.valueOf(ins) }
+                        val changeTimeSignature = { pair: Pair<Int, Int> -> timeSignature = pair }
+                        // todo 怪, 应该每条轨道都能设置才对
 
                         noteLists.forEachIndexed { index, content ->
 
                             track {
                                 var mode = ""
                                 var defaultPitch = 4
-
                                 defaultNoteDuration = 1
 
                                 configParts[index].split(";").forEach {
@@ -183,6 +241,18 @@ object MidiProduce : KotlinPlugin(
                                         mode = it
                                     } else if (it.matches(Regex("\\d"))) {
                                         defaultPitch = it.toInt()
+                                    } else if (it.matches(Regex("\\d/\\d"))) {
+                                        val ts = it.split("/")
+                                        changeTimeSignature(ts[0].toInt() to ts[1].toInt())
+                                    } else if (it.matches(Regex("i=[a-zA-Z-]+"))) {
+                                        // 两个都设置下 (
+                                        program = MiderDSL.instrument.valueOf(it.replace("i=", ""))
+                                        // todo fix
+                                        if (!Config.formatMode.contains("muse-score")) {
+                                            changeOuterProgram(it.replace("i=", ""))
+                                            ifDebug("set outer program to $program")
+                                        }
+                                        ifDebug("set program to $program")
                                     } else if (it.matches(Regex("img"))) {
                                         isRenderingNotation = true
                                         notationType = NotationType.PNGS
@@ -227,24 +297,25 @@ object MidiProduce : KotlinPlugin(
                         if (isRenderingNotation) {
                             val midi = AudioUtilsGetTempFile("mid")
                             midi.writeBytes(midiStream.readAllBytes())
-                            val mscz = convert2MSCZ(midi)
 
                             when (notationType) {
                                 NotationType.PNGS -> {
-                                    convert2PNGS(mscz).forEach { png ->
-                                        logger.info("$>>${png.name}")
-
-                                        png.toExternalResource().use {
-                                            val img = subject.uploadImage(it)
-                                            subject.sendMessage(img)
-                                            delay(100)
+                                    val chain = buildMessageChain {
+                                        convert2PNGS(midi).forEach { png ->
+                                            png.toExternalResource().use {
+                                                val img = subject.uploadImage(it)
+                                                subject.sendMessage(img)
+                                                delay(50)
+                                                +img
+                                            }
                                         }
                                     }
+                                    if (Config.cache) cache[msg] = chain
                                 }
 
                                 NotationType.PDF -> {
                                     if (subject is FileSupported) {
-                                        val pdf = convert2PDF(mscz)
+                                        val pdf = convert2PDF(midi)
                                         pdf.toExternalResource().use {
                                             (subject as FileSupported).files.uploadNewFile(pdf.name, it)
                                         }
@@ -253,6 +324,7 @@ object MidiProduce : KotlinPlugin(
 
                                 NotationType.MSCZ -> {
                                     if (subject is FileSupported) {
+                                        val mscz = convert2MSCZ(midi)
                                         mscz.toExternalResource().use {
                                             (subject as FileSupported).files.uploadNewFile(mscz.name, it)
                                         }
@@ -274,8 +346,11 @@ object MidiProduce : KotlinPlugin(
                         when (this) {
 
                             is GroupMessageEvent -> {
+                                val size = stream.available()
 
-                                if (stream.available() > Config.uploadSize) {
+                                if (size > 1024 * 1024) logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
+
+                                if (size > Config.uploadSize) {
                                     stream.toExternalResource().use {
                                         group.files.uploadNewFile(
                                             "generate-${System.currentTimeMillis()}.mp3",
@@ -307,6 +382,7 @@ object MidiProduce : KotlinPlugin(
                         }
                     }
                 }
+
             }
         }
     }
@@ -326,10 +402,20 @@ enum class NotationType {
 
 object Config : AutoSavePluginConfig("config") {
 
+    @ValueDescription("自嘲时间")
+    val selfMockeryTime by value(7 * 1000L)
+    @ValueDescription("是否自嘲(")
+    val selfMockery by value(true)
+
+    @ValueDescription("命令执行超时时间")
+    val commandTimeout by value(60 * 1000L)
+
     @ValueDescription("ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行, {{input}} 和 {{output}} 由 插件提供不需要修改")
     val ffmpegConvertCommand by value("ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}")
     @ValueDescription("timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行")
     val timidityConvertCommand by value("timidity {{input}} -Ow -o {{output}}")
+    @ValueDescription("muse score 从 .mid 转换到 .mp3 ")
+    val mscoreConvertMidi2Mp3Command by value("MuseScore3 {{input}} -o {{output}}")
 
     @ValueDescription("muse score 从 .mid 转换到 .mscz")
     val mscoreConvertMidi2MSCZCommand by value("MuseScore3 {{input}} -o {{output}}")
@@ -338,7 +424,7 @@ object Config : AutoSavePluginConfig("config") {
     val mscoreConvertMSCZ2PDFCommand by value("MuseScore3 {{input}} -o {{output}}")
 
     @ValueDescription("muse score 从 .mid 转换到 .png 序列")
-    val mscoreConvertMSCZ2PNGSCommand by value("MuseScore3 {{input}} -o {{output}}")
+    val mscoreConvertMSCZ2PNGSCommand by value("MuseScore3 {{input}} -o {{output}} --trim-image 120")
 
     @ValueDescription("include 最大深度")
     val recursionLimit by value(50)
@@ -353,9 +439,11 @@ object Config : AutoSavePluginConfig("config") {
             "timidity->ffmpeg\n" +
             "timidity->ffmpeg->silk4j\n" +
             "timidity->java-lame\n" +
-            "timidity->java-lame->silk4j\n"
+            "timidity->java-lame->silk4j\n" +
+            "muse-score\n" +
+            "muse-score->silk4j\n"
     )
-    val formatMode by value("internal->java-lame")
+    var formatMode by value("internal->java-lame")
     @ValueDescription("宏是否启用严格模式")
     val macroUseStrictMode by value(true)
     @ValueDescription("是否启用调试")

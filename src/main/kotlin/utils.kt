@@ -222,6 +222,20 @@ fun generateAudioStreamByFormatMode(midiStream: InputStream): InputStream {
             silk.inputStream()
         }
 
+        "muse-score" -> {
+            ifDebug("using: muse-score")
+            // support instrument
+            museScoreConvert(midiStream).inputStream()
+        }
+
+        "muse-score->silk4j" -> {
+            ifDebug("using: muse-score->silk4j")
+            // support instrument
+            val silk = AudioUtils.mp3ToSilk(museScoreConvert(midiStream).inputStream(), Config.silkBitsRate)
+            silk.deleteOnExit()
+            silk.inputStream()
+        }
+
         // internal->java-lame 或者默认情况
         else -> {
             ifDebug("using: internal->java-lame")
@@ -264,21 +278,26 @@ fun ffmpegConvert(midiFileStream: InputStream): File {
     return outputFile
 }
 
+fun museScoreConvert(midiFileStream: InputStream): File {
+    val midiFile = AudioUtilsGetTempFile("mid")
+    midiFile.writeBytes(midiFileStream.readAllBytes())
+    return convertUsingConfigCommand(Config.mscoreConvertMidi2Mp3Command, midiFile, "mp3")
+}
+
 fun convert2MSCZ(midi: File): File {
    return convertUsingConfigCommand(Config.mscoreConvertMidi2MSCZCommand, midi, "mscz")
 }
 
-fun convert2PDF(mscz: File): File {
-   return convertUsingConfigCommand(Config.mscoreConvertMSCZ2PDFCommand, mscz, "pdf")
+fun convert2PDF(midi: File): File {
+   return convertUsingConfigCommand(Config.mscoreConvertMSCZ2PDFCommand, midi, "pdf")
 }
 
-fun convert2PNGS(mscz: File): List<File> {
+fun convert2PNGS(midi: File): List<File> {
     val outputSample = AudioUtilsGetTempFile("png")
     outputSample.writeText("大弦嘈嘈如急雨, 小弦切切如私语")
-    convertUsingConfigCommand(Config.mscoreConvertMSCZ2PNGSCommand, mscz, outputSample)
+    convertUsingConfigCommand(Config.mscoreConvertMSCZ2PNGSCommand, midi, outputSample)
 
     val result = outputSample.parentFile.listFiles(FileFilter {
-        println(it.name)
         it.name.startsWith(outputSample.nameWithoutExtension) && it != outputSample
     }) ?: throw Exception("convert to pngs failed")
 
@@ -317,9 +336,9 @@ fun AudioUtilsGetTempFile(type: String, autoClean: Boolean = true): File {
     return File(MidiProduce.tmpDir, fileName).let { if (autoClean) it.deleteOnExit(); it }
 }
 
-fun String.execute(timeout: Long = 60 * 1000, charset: String, workingDir: File = MidiProduce.tmpDir) = this.execute(timeout, Charset.forName(charset), workingDir)
+fun String.execute(charset: String, timeout: Long = Config.commandTimeout, workingDir: File = MidiProduce.tmpDir) = this.execute(Charset.forName(charset), timeout , workingDir)
 
-fun String.execute(timeout: Long = 60 * 1000, charset: Charset = Charset.forName("utf-8"), workingDir: File = MidiProduce.tmpDir): Pair<String, String> {
+fun String.execute(charset: Charset = Charset.forName("utf-8"), timeout: Long = Config.commandTimeout, workingDir: File = MidiProduce.tmpDir): Pair<String, String> {
     //接收正常结果流
     val outputStream = ByteArrayOutputStream()
     //接收异常结果流
@@ -338,5 +357,3 @@ fun String.execute(timeout: Long = 60 * 1000, charset: Charset = Charset.forName
     val error = errorStream.toString(charset)
     return out to error
 }
-
-
