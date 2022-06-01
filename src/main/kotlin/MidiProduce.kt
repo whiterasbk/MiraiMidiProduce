@@ -369,11 +369,14 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("帮助信息 (更新版本时记得要删掉这一行)")
     val help by value("""
 # 命令格式 (一个命令代表一条轨道)
->bpm[;mode][;pitch][;midi]>音名序列 | 唱名序列
+>bpm[;mode][;pitch][;midi][;img][;pdf][;mscz]>音名序列 | 唱名序列
 bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
 midi: 是否仅上传 midi 文件, 可选
+img: 是否仅上传 png 格式的乐谱
+pdf: 是否仅上传 pdf 文件, 可选
+mscz: 是否仅上传 mscz 文件, 可选
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
 
 # 示例
