@@ -29,6 +29,7 @@ img: 是否仅上传 png 格式的乐谱
 # 获取帮助
 >!help>
 ```
+**注: 涉及乐谱生成需要先安装 Muse Score**
 
 ## 效果
 ![你看到了一张图](https://mirai.mamoe.net/assets/uploads/files/1653475903211-d7c4283d-8163-4079-8c60-11d26468d8b1-image.png)
