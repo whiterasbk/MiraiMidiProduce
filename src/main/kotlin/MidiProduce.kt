@@ -55,6 +55,7 @@ object MidiProduce : KotlinPlugin(
 
         val process: suspend MessageEvent.() -> Unit = {
             var finishFlag = false
+            // todo 改为有概率触发
             if (Config.selfMockery) launch {
                 delay(Config.selfMockeryTime)
                 // 开始嘲讽
@@ -253,13 +254,13 @@ object MidiProduce : KotlinPlugin(
                                             ifDebug("set outer program to $program")
                                         }
                                         ifDebug("set program to $program")
-                                    } else if (it.matches(Regex("img"))) {
+                                    } else if (it == "img") {
                                         isRenderingNotation = true
                                         notationType = NotationType.PNGS
-                                    } else if (it.matches(Regex("pdf"))) {
+                                    } else if (it =="pdf") {
                                         isRenderingNotation = true
                                         notationType = NotationType.PDF
-                                    } else if (it.matches(Regex("mscz"))) {
+                                    } else if (it == "mscz") {
                                         isRenderingNotation = true
                                         notationType = NotationType.MSCZ
                                     }
