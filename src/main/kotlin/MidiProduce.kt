@@ -7,6 +7,7 @@ import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.contact.FileSupported
+import net.mamoe.mirai.event.events.BotEvent
 import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
@@ -59,11 +60,13 @@ object MidiProduce : KotlinPlugin(
             }
         }
 
-        globalEventChannel().subscribeAlways<GroupMessageEvent>{
+        val botEvent = globalEventChannel().filter { it is BotEvent }
+
+        botEvent.subscribeAlways<GroupMessageEvent>{
             process()
         }
 
-        globalEventChannel().subscribeAlways<FriendMessageEvent> {
+        botEvent.subscribeAlways<FriendMessageEvent> {
             process()
         }
     }
