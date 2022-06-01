@@ -17,19 +17,19 @@
 
 ```shell
 # 命令格式 (一个命令代表一条轨道)
->bpm[;mode][;pitch][;img][;pdf][;mscz][;midi]>音名序列 | 唱名序列
+>bpm[;mode][;pitch][;midi][;img][;pdf][;mscz]>音名序列 | 唱名序列
 bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
 midi: 是否仅上传 midi 文件, 可选
-mscz: 是否仅上传 mscz 文件, 可选
-pdf: 是否仅上传 pdf 文件, 可选
 img: 是否仅上传 png 格式的乐谱
+pdf: 是否仅上传 pdf 文件, 可选
+mscz: 是否仅上传 mscz 文件, 可选
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
 # 获取帮助
 >!help>
 ```
-**注: 涉及乐谱生成需要先安装 Muse Score**
+**注: 涉及乐谱生成需要先安装 Muse Score** 见[转换乐谱](#转换乐谱)
 
 ## 效果
 ![你看到了一张图](https://mirai.mamoe.net/assets/uploads/files/1653475903211-d7c4283d-8163-4079-8c60-11d26468d8b1-image.png)
@@ -152,19 +152,25 @@ A~G: A5~G5
 ## 转换乐谱
 **此功能需要首先安装 [Muse Score](https://musescore.org/zh-hans)**
 
-安装完成后将 `Muse Score` 的运行目录 包括`bin/` 添加到环境变量
+下载 `Muse Score` : 可以根据官方 [下载页面](https://musescore.org/zh-hans/download) 也可以参考 [snapcraft](https://snapcraft.io/musescore)
 
-或者也可以修改配置中`mscoreConvertMidi2MSCZCommand` 等的值, 将 `MuseScore3` 替换成 `MuseScore` 的可执行程序即可
+附官方 `linux` [安装指北](https://musescore.org/zh-hans/handbook/3/install-linux) 
+
+安装完成后将 `Muse Score` 的运行目录 (包括`bin/`) 添加到环境变量
+
+或者也可以修改配置中`mscoreConvertMidi2MSCZCommand` 等的值为安装目录
+
+#### 如您的安装的可执行程序启动命令不是 `MuseScore3`, 您需要手动将 `config.yml` 中的 `MuseScore3` **替换**成正确的 `MuseScore` 启动命令
 
 最后在命令中添加 `;pdf` 或 `;png` 即可得到渲染好的乐谱
 
 ![44f9b717-4c28-453e-b99c-2fc8567828c8-image.png](https://mirai.mamoe.net/assets/uploads/files/1654083503837-44f9b717-4c28-453e-b99c-2fc8567828c8-image.png)
 
-若想修改 `Muse Score` 命令格式和参数, 请参考 [官方使用手册](https://musescore.org/zh-hans/node/278624)
+若想修改 `Muse Score` 命令格式和参数, 请参考 [官方使用手册](https://musescore.org/zh-hans/handbook)
 
-## 配置
+## 参考配置
 ```yaml
-# ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行
+# ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行 , {{input}} 和 {{output}} 由 插件提供不需要修改
 ffmpegConvertCommand: 'ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}'
 # timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行
 timidityConvertCommand: 'timidity {{input}} -Ow -o {{output}}'
@@ -199,18 +205,20 @@ uploadSize: 1153433
 ```
 
 ## 注意
- - 唱名序列中 `\s{2}` 和 `\s\|\s` 会被自动替换成 `0` 也就是休止符
+ - 唱名序列中 `\s{2}` 和 `\s\|\s` 会被自动替换成 `0` 也就是休止符, 可以在配置中修改这部分行为
+ - 若为使用 `internal` 模式则生成的语音音色会随着系统底层实现的不同而不同
  - 如果最后输出的格式是 `silk` 那么好友和群聊都有效, 如果是 `mp3` 则仅群聊有效, 好友会出现感叹号
- - `pc` 端听不了, `mac` 据说可以~~哪位富婆可以给咱买一台测试一下(~~
+ - `mp3` 格式在 `pc` 端听不了, `mac` 据说可以~~, 哪位富婆可以给咱买一台测试一下(~~
  - 命令还未加入权限, 可以在 [#3](https://github.com/whiterasbk/MiraiMidiProduce/issues/3) 进行讨论
- - 好友环境下生成 `silk` 格式会比 `mp3` 音质低得多, 听个响属于是
+ - 好友环境下生成 `silk` 格式会比 `mp3` 音质低得多~~, 听个响属于是~~
 
-## 关于构建
+## 构建
 
-`clone` 到本地后修改 `build.gradle.kts` 中的 `username` 和 `password` 为自己的即可成功构建
+由于使用了 [RainChan](https://github.com/mzdluo123) 的 [silk4j](https://github.com/mzdluo123/silk4j) 所以 `clone` 到本地后要修改 `build.gradle.kts` 中的 `username` 和 `password` 为自己的才能成功构建
 
-## 关于 timidity 和 ffmpeg
-在服务器环境插件可能会由于缺少硬件或驱动支持无法生成语音, 可以尝试安装 `timidity` 和 `ffmpeg` 解决
+## 服务器环境下生成语音
+
+在服务器环境插件可能会由于缺少硬件或驱动支持无法生成语音, 可以尝试安装 [timidity](http://timidity.sourceforge.net/) 和 [ffmpeg](http://ffmpeg.org/) 解决
 
 具体的安装可以参考 [这篇](https://www.cnblogs.com/koujiaonuhan/p/aliyun_centos65_install_ffmpeg_libmp3lame_timidity_to_convert_midi_to_mp3.html)
 
@@ -220,7 +228,7 @@ uploadSize: 1153433
 
 最后修改 `formatMode` 即可使用 `timidity` 和 `ffmpeg` 生成语音
 
-## 关于修改音色
+## 修改音色
 
 目前只能通过安装 `timidity` 来实现
 
