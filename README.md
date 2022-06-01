@@ -162,7 +162,7 @@ A~G: A5~G5
 
 #### 如您的安装的可执行程序启动命令不是 `MuseScore3`, 您需要手动将 `config.yml` 中的 `MuseScore3` **替换**成正确的 `MuseScore` 启动命令
 
-最后在命令中添加 `;pdf` 或 `;png` 即可得到渲染好的乐谱
+最后在命令中添加 `;pdf` 或 `;img` 即可得到渲染好的乐谱
 
 ![44f9b717-4c28-453e-b99c-2fc8567828c8-image.png](https://mirai.mamoe.net/assets/uploads/files/1654083503837-44f9b717-4c28-453e-b99c-2fc8567828c8-image.png)
 
