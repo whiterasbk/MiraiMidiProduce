@@ -1,5 +1,10 @@
 # MidiProduce
 
+![](https://img.shields.io/github/downloads/whiterasbk/MiraiMidiProduce/total) 
+![](https://img.shields.io/github/v/release/whiterasbk/MiraiMidiProduce?display_name=tag)
+![](https://img.shields.io/github/languages/top/whiterasbk/MiraiMidiProduce)
+![GitHub](https://img.shields.io/github/license/whiterasbk/MiraiMIdiProduce)
+
 在线作曲插件
 
 ## 安装方法
