@@ -164,6 +164,12 @@ A~G: A5~G5
 ffmpegConvertCommand: 'ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}'
 # timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行
 timidityConvertCommand: 'timidity {{input}} -Ow -o {{output}}'
+# muse score 从 .mid 转换到 .mscz
+mscoreConvertMidi2MSCZCommand: 'MuseScore3 {{input}} -o {{output}}'
+# muse score 从 .mid 转换到 .pdf
+mscoreConvertMSCZ2PDFCommand: 'MuseScore3 {{input}} -o {{output}}'
+# muse score 从 .mid 转换到 .png 序列
+mscoreConvertMSCZ2PNGSCommand: 'MuseScore3 {{input}} -o {{output}}'
 # silk 比特率(吧
 silkBitsRate: 24000
 # 格式转换输出 可选的有:
