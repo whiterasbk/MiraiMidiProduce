@@ -1,6 +1,7 @@
 package bot.music.whiter
 
 import io.github.mzdluo123.silk4j.AudioUtils
+import kotlinx.coroutines.delay
 import net.mamoe.mirai.console.data.AutoSavePluginConfig
 import net.mamoe.mirai.console.data.ValueDescription
 import net.mamoe.mirai.console.data.value
@@ -26,7 +27,7 @@ object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
         id = "bot.music.whiter.MidiProduce",
         name = "MidiProduce",
-        version = "0.1.5",
+        version = "0.1.6",
     ) {
         author("whiterasbk")
     }
@@ -86,6 +87,9 @@ object MidiProduce : KotlinPlugin(
                         it.extension == "amr" ||
                         it.extension == "mid" ||
                         it.extension == "midi" ||
+                        it.extension == "mscz" ||
+                        it.extension == "png" ||
+                        it.extension == "pdf" ||
                         it.extension == "pcm"
             })?.forEach {
                 it.delete()
@@ -121,7 +125,7 @@ object MidiProduce : KotlinPlugin(
 
     private suspend fun MessageEvent.generate() {
 
-        val startRegex = Regex(">(g|f|\\d+b)((;[-+b#]?[A-G](min|maj|major|minor)?)|(;\\d)|(;vex|vex&au)|(;midi))*>")
+        val startRegex = Regex(">(g|f|\\d+b)((;[-+b#]?[A-G](min|maj|major|minor)?)|(;\\d)|(;img)|(;pdf)|(;mscz)|(;midi))*>")
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
         matchRegex(cmdRegex) { msg ->
@@ -139,6 +143,8 @@ object MidiProduce : KotlinPlugin(
                     val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
 
                     val isUploadMidi = "midi" in configParts.joinToString(" ")
+                    var isRenderingNotation = false
+                    var notationType: NotationType? = null
 
                     val dslBlock: MiderDSL.() -> Unit = {
 
@@ -177,8 +183,15 @@ object MidiProduce : KotlinPlugin(
                                         mode = it
                                     } else if (it.matches(Regex("\\d"))) {
                                         defaultPitch = it.toInt()
-                                    } else if (it.matches(Regex("vex|wex&au"))) {
-                                        // todo 渲染乐谱
+                                    } else if (it.matches(Regex("img"))) {
+                                        isRenderingNotation = true
+                                        notationType = NotationType.PNGS
+                                    } else if (it.matches(Regex("pdf"))) {
+                                        isRenderingNotation = true
+                                        notationType = NotationType.PDF
+                                    } else if (it.matches(Regex("mscz"))) {
+                                        isRenderingNotation = true
+                                        notationType = NotationType.MSCZ
                                     }
                                 }
 
@@ -201,55 +214,97 @@ object MidiProduce : KotlinPlugin(
                                     if (stander.isNotBlank()) !stander
                                 }
 
-                                // 渲染 乐谱
-
                                 ifDebug { logger.info("track: ${index + 1}"); debug() }
                             }
 
                         }
                     }
 
-                    val stream: InputStream =
-                        if (isUploadMidi) fromDsl(dslBlock).inStream() else generateAudioStreamByFormatMode(dslBlock)
+                    val midiStream: InputStream = fromDsl(dslBlock).inStream()
 
-                    if (isUploadMidi && subject is FileSupported)
-                        stream.toExternalResource().use {
+                    if (isRenderingNotation) {
+                        // 渲染 乐谱
+                        if (isRenderingNotation) {
+                            val midi = AudioUtilsGetTempFile("mid")
+                            midi.writeBytes(midiStream.readAllBytes())
+                            val mscz = convert2MSCZ(midi)
+
+                            when (notationType) {
+                                NotationType.PNGS -> {
+                                    convert2PNGS(mscz).forEach { png ->
+                                        logger.info("$>>${png.name}")
+
+                                        png.toExternalResource().use {
+                                            val img = subject.uploadImage(it)
+                                            subject.sendMessage(img)
+                                            delay(100)
+                                        }
+                                    }
+                                }
+
+                                NotationType.PDF -> {
+                                    if (subject is FileSupported) {
+                                        val pdf = convert2PDF(mscz)
+                                        pdf.toExternalResource().use {
+                                            (subject as FileSupported).files.uploadNewFile(pdf.name, it)
+                                        }
+                                    } else subject.sendMessage("打咩")
+                                }
+
+                                NotationType.MSCZ -> {
+                                    if (subject is FileSupported) {
+                                        mscz.toExternalResource().use {
+                                            (subject as FileSupported).files.uploadNewFile(mscz.name, it)
+                                        }
+                                    } else subject.sendMessage("打咩")
+                                }
+
+                                else -> throw Exception("plz provide the output format")
+                            }
+                        }
+                    } else if (isUploadMidi && subject is FileSupported) {
+                        midiStream.toExternalResource().use {
                             (subject as FileSupported).files.uploadNewFile(
                                 "generate-${System.currentTimeMillis()}.mid",
                                 it
                             )
                         }
-                    else when (this) {
-                        is GroupMessageEvent -> {
-                            if (stream.available() > Config.uploadSize) {
-                                stream.toExternalResource().use {
-                                    group.files.uploadNewFile(
-                                        "generate-${System.currentTimeMillis()}.mp3",
-                                        it
-                                    )
-                                }
-                            } else {
-                                stream.toExternalResource().use {
-                                    val audio = group.uploadAudio(it)
-                                    group.sendMessage(audio)
-                                    if (Config.cache) cache[msg] = audio
+                    } else {
+                        val stream = generateAudioStreamByFormatMode(midiStream)
+                        when (this) {
+
+                            is GroupMessageEvent -> {
+
+                                if (stream.available() > Config.uploadSize) {
+                                    stream.toExternalResource().use {
+                                        group.files.uploadNewFile(
+                                            "generate-${System.currentTimeMillis()}.mp3",
+                                            it
+                                        )
+                                    }
+                                } else {
+                                    stream.toExternalResource().use {
+                                        val audio = group.uploadAudio(it)
+                                        group.sendMessage(audio)
+                                        if (Config.cache) cache[msg] = audio
+                                    }
                                 }
                             }
-                        }
 
-                        is FriendMessageEvent -> {
-                            if (stream.available() > Config.uploadSize) {
-                                friend.sendMessage("生成的语音过大且bot不能给好友发文件")
-                            } else {
-                                stream.toExternalResource().use {
-                                    val audio = friend.uploadAudio(it)
-                                    friend.sendMessage(audio)
-                                    if (Config.cache) cache[msg] = audio
+                            is FriendMessageEvent -> {
+                                if (stream.available() > Config.uploadSize) {
+                                    friend.sendMessage("生成的语音过大且bot不能给好友发文件")
+                                } else {
+                                    stream.toExternalResource().use {
+                                        val audio = friend.uploadAudio(it)
+                                        friend.sendMessage(audio)
+                                        if (Config.cache) cache[msg] = audio
+                                    }
                                 }
                             }
-                        }
 
-                        else -> throw Exception("打咩")
+                            else -> throw Exception("打咩")
+                        }
                     }
                 }
             }
@@ -265,12 +320,25 @@ object MidiProduce : KotlinPlugin(
     }
 }
 
+enum class NotationType {
+    PNGS, MSCZ, PDF
+}
+
 object Config : AutoSavePluginConfig("config") {
 
     @ValueDescription("ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行")
     val ffmpegConvertCommand by value("ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}")
     @ValueDescription("timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行")
     val timidityConvertCommand by value("timidity {{input}} -Ow -o {{output}}")
+
+    @ValueDescription("muse score 从 .mid 转换到 .mscz")
+    val mscoreConvertMidi2MSCZCommand by value("MuseScore3 {{input}} -o {{output}}")
+
+    @ValueDescription("muse score 从 .mid 转换到 .pdf")
+    val mscoreConvertMSCZ2PDFCommand by value("MuseScore3 {{input}} -o {{output}}")
+
+    @ValueDescription("muse score 从 .mid 转换到 .png 序列")
+    val mscoreConvertMSCZ2PNGSCommand by value("MuseScore3 {{input}} -o {{output}}")
 
     @ValueDescription("include 最大深度")
     val recursionLimit by value(50)

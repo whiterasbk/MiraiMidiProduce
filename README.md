@@ -140,6 +140,19 @@ A~G: A5~G5
 >f>a b c (f 的 pitch 默认为 3, 可以当作低音轨道
 ```
 
+## 转换乐谱
+**此功能需要首先安装 [Muse Score](https://musescore.org/zh-hans)**
+
+安装完成后将 `Muse Score` 的运行目录 包括`bin/` 添加到环境变量
+
+或者也可以修改配置中`mscoreConvertMidi2MSCZCommand` 等的值, 将 `MuseScore3` 替换成 `MuseScore` 的可执行程序即可
+
+最后在命令中添加 `;pdf` 或 `;png` 即可得到渲染好的乐谱
+
+![44f9b717-4c28-453e-b99c-2fc8567828c8-image.png](https://mirai.mamoe.net/assets/uploads/files/1654083503837-44f9b717-4c28-453e-b99c-2fc8567828c8-image.png)
+
+若想修改 `Muse Score` 命令格式和参数, 请参考 [官方使用手册](https://musescore.org/zh-hans/node/278624)
+
 ## 配置
 ```yaml
 # ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行

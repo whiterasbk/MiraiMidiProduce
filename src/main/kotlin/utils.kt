@@ -27,9 +27,8 @@ suspend fun MessageEvent.matchRegex(reg: Regex, block: suspend (String) -> Unit)
 
 suspend fun MessageEvent.matchRegex(reg: String, block: suspend (String) -> Unit) = matchRegex(Regex(reg), block)
 
-fun midi2mp3Stream(USE_VARIABLE_BITRATE: Boolean = false, GOOD_QUALITY_BITRATE: Int = 256, block: MiderDSL.() -> Any): ByteArrayInputStream {
-    val midiFile = fromDsl(block)
-    val audioInputStream = AudioSystem.getAudioInputStream(midiFile.inStream())
+fun midi2mp3Stream(USE_VARIABLE_BITRATE: Boolean = false, GOOD_QUALITY_BITRATE: Int = 256, midiStream: InputStream): ByteArrayInputStream {
+    val audioInputStream = AudioSystem.getAudioInputStream(midiStream)
     return wave2mp3Stream(audioInputStream, USE_VARIABLE_BITRATE, GOOD_QUALITY_BITRATE)
 }
 
@@ -167,11 +166,11 @@ suspend fun time(block: suspend () -> Unit) {
     } else block()
 }
 
-fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
+fun generateAudioStreamByFormatMode(midiStream: InputStream): InputStream {
     return when (Config.formatMode) {
         "internal->java-lame->silk4j" -> {
             ifDebug("using: internal->java-lame->silk4j")
-            val audioInputStream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality, block = block)
+            val audioInputStream = midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality, midiStream = midiStream)
             val silk = AudioUtils.mp3ToSilk(audioInputStream, Config.silkBitsRate)
             silk.deleteOnExit()
             silk.inputStream()
@@ -180,7 +179,7 @@ fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
         "internal->silk4j" -> {
             // todo fix sampleRate 和 bitRate 怎么也对不上的问题
             ifDebug("using: internal->silk4j")
-            val pcmStream = AudioSystem.getAudioInputStream(fromDsl(block).inStream())
+            val pcmStream = AudioSystem.getAudioInputStream(midiStream)
             val sampleRate = pcmStream.format.sampleRate.toInt()
             val bitRate = pcmStream.format.sampleSizeInBits
             val pcmFile = AudioUtilsGetTempFile("pcm").let { it.writeBytes(pcmStream.readAllBytes()); it }
@@ -189,14 +188,14 @@ fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
 
         "timidity->ffmpeg" -> {
             ifDebug("using: timidity->ffmpeg")
-            val wav = timidityConvert(fromDsl(block).inStream())
+            val wav = timidityConvert(midiStream)
             val mp3 = ffmpegConvert(wav.inputStream())
             mp3.inputStream()
         }
 
         "timidity->ffmpeg->silk4j" -> {
             ifDebug("timidity->ffmpeg->silk4j")
-            val wav = timidityConvert(fromDsl(block).inStream())
+            val wav = timidityConvert(midiStream)
             val mp3 = ffmpegConvert(wav.inputStream())
             val silk = AudioUtils.mp3ToSilk(mp3, Config.silkBitsRate)
             silk.deleteOnExit()
@@ -210,13 +209,13 @@ fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
 
         "timidity->java-lame" -> {
             ifDebug("using: timidity->java-lame")
-            val wav = timidityConvert(fromDsl(block).inStream())
+            val wav = timidityConvert(midiStream)
             wave2mp3Stream(AudioSystem.getAudioInputStream(wav), GOOD_QUALITY_BITRATE = Config.quality)
         }
 
         "timidity->java-lame->silk4j" -> {
             ifDebug("using: timidity->java-lame->silk4j")
-            val wav = timidityConvert(fromDsl(block).inStream())
+            val wav = timidityConvert(midiStream)
             val mp3Stream = wave2mp3Stream(AudioSystem.getAudioInputStream(wav), GOOD_QUALITY_BITRATE = Config.quality)
             val silk = AudioUtils.mp3ToSilk(mp3Stream, Config.silkBitsRate)
             silk.deleteOnExit()
@@ -226,10 +225,12 @@ fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream {
         // internal->java-lame 或者默认情况
         else -> {
             ifDebug("using: internal->java-lame")
-            midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality, block = block)
+            midi2mp3Stream(GOOD_QUALITY_BITRATE = Config.quality, midiStream = midiStream)
         }
     }
 }
+
+fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream = generateAudioStreamByFormatMode(fromDsl(block).inStream())
 
 fun timidityConvert(midiFileStream: InputStream): File {
     val midiFile = AudioUtilsGetTempFile("mid")
@@ -263,6 +264,44 @@ fun ffmpegConvert(midiFileStream: InputStream): File {
     return outputFile
 }
 
+fun convert2MSCZ(midi: File): File {
+   return convertUsingConfigCommand(Config.mscoreConvertMidi2MSCZCommand, midi, "mscz")
+}
+
+fun convert2PDF(mscz: File): File {
+   return convertUsingConfigCommand(Config.mscoreConvertMSCZ2PDFCommand, mscz, "pdf")
+}
+
+fun convert2PNGS(mscz: File): List<File> {
+    val outputSample = AudioUtilsGetTempFile("png")
+    outputSample.writeText("大弦嘈嘈如急雨, 小弦切切如私语")
+    convertUsingConfigCommand(Config.mscoreConvertMSCZ2PNGSCommand, mscz, outputSample)
+
+    val result = outputSample.parentFile.listFiles(FileFilter {
+        println(it.name)
+        it.name.startsWith(outputSample.nameWithoutExtension) && it != outputSample
+    }) ?: throw Exception("convert to pngs failed")
+
+    return result.toList().sorted()
+}
+
+private fun convertUsingConfigCommand(usingCommand: String, inputFile: File, outputFile: File): File {
+    val result = usingCommand
+        .replace("{{input}}", inputFile.name)
+        .replace("{{output}}", outputFile.name)
+        .execute()
+
+    if (!outputFile.exists() || outputFile.length() == 0L) throw Exception(result.second)
+
+    ifDebug(result.first)
+
+    return outputFile
+}
+
+private fun convertUsingConfigCommand(usingCommand: String, inputFile: File, outputFileExtension: String): File {
+    return convertUsingConfigCommand(usingCommand, inputFile, AudioUtilsGetTempFile(outputFileExtension))
+}
+
 @Throws(IOException::class)
 private fun AudioUtilsPcmToSilk(pcmFile: File, sampleRate: Int, bitRate: Int = 24000): File {
     if (!pcmFile.exists() || pcmFile.length() == 0L) {
@@ -273,7 +312,7 @@ private fun AudioUtilsPcmToSilk(pcmFile: File, sampleRate: Int, bitRate: Int = 2
     return silkFile
 }
 
-private fun AudioUtilsGetTempFile(type: String, autoClean: Boolean = true): File {
+fun AudioUtilsGetTempFile(type: String, autoClean: Boolean = true): File {
     val fileName = "mirai_audio_${type}_${System.currentTimeMillis()}.$type"
     return File(MidiProduce.tmpDir, fileName).let { if (autoClean) it.deleteOnExit(); it }
 }
