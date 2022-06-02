@@ -1,11 +1,10 @@
 package bot.music.whiter
 
 import net.mamoe.mirai.console.util.cast
-import java.lang.StringBuilder
-import java.util.*
-import kotlin.math.pow
 import java.io.File
 import java.net.URL
+import java.util.*
+import kotlin.math.pow
 
 fun toMiderStanderNoteString(list: List<InMusicScore>): String {
     val result = mutableListOf<SimpleNoteDescriber>()
@@ -123,6 +122,37 @@ fun macro(seq: String, config: MacroConfiguration = MacroConfiguration()): Strin
             if (config.recursionCount > config.recursionLimit) throw Exception("stack overflow, the limit is ${config.recursionLimit} while launching this macro")
             config.recursionCount ++
             macro(config.fetch(str.replace(Regex("include\\s+"), "")), config)
+        } else if (MacroConfiguration.commentPattern.matches(str)) {
+            ""
+        } else if (MacroConfiguration.velocityPattern.matches(str)) {
+            // 音名序列可用, 和弦使用会出bug
+
+            val funcName = MacroConfiguration.velocityPattern.matchEntire(str)!!.groupValues[1].trim()
+            val range = MacroConfiguration.velocityPattern.matchEntire(str)!!.groupValues[2].replace(Regex("\\s"), "").split("~")
+            val body = str.replace(Regex("velocity\\s+(linear\\s|func\\s)(\\d{1,3}\\s*~\\s*\\d{1,3})\\s*:"), "")
+
+            if (range[0] == "100" && range[1] == "100") body else {
+                when (funcName) {
+                    "linear" -> {
+                        val result = Regex("([abcdefgABCDEFG~^vmwnui!pqsz])").findAll(body).toList()
+                        val ret = StringBuilder()
+                        val from = range[0].toInt()
+                        val to = range[1].toInt()
+                        if (result.isEmpty()) throw Exception("body has to contain notes")
+                        val step = (to - from).toDouble() / result.size
+                        var count = .0
+
+                        body.forEach {
+                            if (it in "abcdefgABCDEFG~^vmwnui!pqsz") {
+                                ret.append("$it%${(from + count).toInt()}")
+                                count += step
+                            } else ret.append(it)
+                        }
+                        ret.toString()
+                    }
+                    else -> config.logger.error(Exception("unsupported function in velocity: $funcName"))
+                }
+            }
         } else {
             config.logger.error(Exception("unsupported operation in outer: $str"))
             str
@@ -179,9 +209,12 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
 
     val list = mutableListOf<InMusicScore>()
     val doAfter = mutableListOf<(Char)->Unit>()
+    var skipper = 0 // 跳过多少个字符 0 表示不跳过
+
+    val afterMacro = seq.let { if (useMacro) macro(it, config) else it }
 
     fun checkSuffixModifyAvailable() {
-        if (list.isEmpty()) throw Exception("before modify or clone the note, you should insert at least one\ninput: $seq\nisStave: $isStave")
+        if (list.isEmpty()) throw Exception("before modify or clone the note, you should insert at least one\ninput: $afterMacro\nisStave: $isStave")
     }
 
     fun cloneAndModify(times: Int = 1, isUpper: Boolean = true) {
@@ -201,227 +234,255 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
             chord += chord.last().clone().lowerNoteName(times)
     }
 
-    seq.let { if (useMacro) macro(it, config) else it }.forEach { char ->
+    afterMacro.forEachIndexed { index, char ->
 
-        when (char) {
+        if (skipper == 0) {
+            when (char) {
 
-            in 'a'..'g' -> {
-                if (isStave)
-                    list += Note(char, pitch = pitch)
-                else if (char == 'b') {
-                    doAfter += {
-                        (list.last() as? Note)?.flap()
+                in 'a'..'g' -> {
+                    if (isStave)
+                        list += Note(char, pitch = pitch)
+                    else if (char == 'b') {
+                        doAfter += {
+                            (list.last() as? Note)?.flap()
+                        }
                     }
                 }
-            }
 
-            in 'A'..'G' -> {
-                if (isStave)
-                    list += Note(char, pitch = pitch + 1)
-            }
+                in 'A'..'G' -> {
+                    if (isStave)
+                        list += Note(char, pitch = pitch + 1)
+                }
 
-            'O' -> {
-                doAfter.clear()
-                list += Rest().let { it.duration.double; it }
-            }
+                in '0'..'9' -> {
+                    if (isStave) {
+                        checkSuffixModifyAvailable()
+                        if (list.last() is Note)
+                            list.last().cast<Note>().pitch = char.code - 48
+                        else if (list.last() is Chord)
+                            list.last().cast<Chord>().last().pitch = char.code - 48
+                    } else if (char in '1'..'7') {
+                        val note = Note('C', pitch = pitch)
+                        note.sharp(deriveInterval(char.code - 49))
+                        list += note
+                    } else if (char == '0') {
+                        doAfter.clear()
+                        list += Rest()
+                    }
+                }
 
-            'o' -> {
-                doAfter.clear()
-                list += Rest()
-            }
+                'O' -> {
+                    doAfter.clear()
+                    list += Rest().let { it.duration.double; it }
+                }
 
-            '~' -> {
-                list += list.last().clone()
-            }
+                'o' -> {
+                    doAfter.clear()
+                    list += Rest()
+                }
 
-            '^' -> cloneAndModify(1)
-            'm' -> cloneAndModify(2)
-            'n' -> cloneAndModify(3)
-            'p' -> cloneAndModify(5)
-            's' -> cloneAndModify(6)
+                '~' -> {
+                    list += list.last().clone()
+                }
 
-            'v' -> cloneAndModify(1, false)
-            'w' -> cloneAndModify(2, false)
-            'u' -> cloneAndModify(3, false)
-            'q' -> cloneAndModify(5, false)
-            'z' -> cloneAndModify(6, false)
+                '^' -> cloneAndModify(1)
+                'm' -> cloneAndModify(2)
+                'n' -> cloneAndModify(3)
+                'p' -> cloneAndModify(5)
+                's' -> cloneAndModify(6)
 
-            'i' -> {
-                if (isStave) {
-                    cloneAndModify(4)
-                } else {
+                'v' -> cloneAndModify(1, false)
+                'w' -> cloneAndModify(2, false)
+                'u' -> cloneAndModify(3, false)
+                'q' -> cloneAndModify(5, false)
+                'z' -> cloneAndModify(6, false)
+
+                'i' -> {
+                    if (isStave) {
+                        cloneAndModify(4)
+                    } else {
+                        checkSuffixModifyAvailable()
+                        if (list.last() is Note)
+                            list.last().cast<Note>() += 1
+                        else if (list.last() is Chord)
+                            list.last().cast<Chord>().last() += 1
+                    }
+                }
+
+                '↑' -> {
                     checkSuffixModifyAvailable()
                     if (list.last() is Note)
                         list.last().cast<Note>() += 1
                     else if (list.last() is Chord)
                         list.last().cast<Chord>().last() += 1
                 }
-            }
 
-            '↑' -> {
-                checkSuffixModifyAvailable()
-                if (list.last() is Note)
-                    list.last().cast<Note>() += 1
-                else if (list.last() is Chord)
-                    list.last().cast<Chord>().last() += 1
-            }
+                '!' -> {
+                    if (isStave) {
+                        cloneAndModify(4, false)
+                    } else {
+                        checkSuffixModifyAvailable()
+                        if (list.last() is Note)
+                            list.last().cast<Note>() -= 1
+                        else if (list.last() is Chord)
+                            list.last().cast<Chord>().last() -= 1
+                    }
+                }
 
-            '!' -> {
-                if (isStave) {
-                    cloneAndModify(4, false)
-                } else {
+                '↓' -> {
                     checkSuffixModifyAvailable()
                     if (list.last() is Note)
                         list.last().cast<Note>() -= 1
                     else if (list.last() is Chord)
                         list.last().cast<Chord>().last() -= 1
                 }
-            }
 
-            '↓' -> {
-                checkSuffixModifyAvailable()
-                if (list.last() is Note)
-                    list.last().cast<Note>() -= 1
-                else if (list.last() is Chord)
-                    list.last().cast<Chord>().last() -= 1
-            }
+                '#' -> {
+                    doAfter += {
+                        (list.last() as? Note)?.sharp()
+                    }
+                }
 
-            in '0'..'9' -> {
-                if (isStave) {
+                '&' -> {
+                    doAfter += {
+                        if (list.last() is Note)
+                            list.last().cast<Note>().isNature = true
+                    }
+                }
+
+                '$' -> {
+                    doAfter += {
+                        if (list.last() is Note)
+                            list.last().cast<Note>().flap()
+                    }
+                }
+
+                '\'' -> {
                     checkSuffixModifyAvailable()
                     if (list.last() is Note)
-                        list.last().cast<Note>().pitch = char.code - 48
-                    else if (list.last() is Chord)
-                        list.last().cast<Chord>().last().pitch = char.code - 48
-                } else if (char in '1'..'7') {
-                    val note = Note('C', pitch = pitch)
-                    note.sharp(deriveInterval(char.code - 49))
-                    list += note
-                } else if (char == '0') {
-                    doAfter.clear()
-                    list += Rest()
-                }
-            }
-
-            '#' -> {
-                doAfter += {
-                    (list.last() as? Note)?.sharp()
-                }
-            }
-
-            '&' -> {
-                doAfter += {
-                    if (list.last() is Note)
-                        list.last().cast<Note>().isNature = true
-                }
-            }
-
-            '$' -> {
-                doAfter += {
-                    if (list.last() is Note)
                         list.last().cast<Note>().flap()
+                    else if (list.last() is Chord)
+                        list.last().cast<Chord>().last().flap()
+                }
+
+                '"' -> {
+                    checkSuffixModifyAvailable()
+                    if (list.last() is Note)
+                        list.last().cast<Note>().sharp()
+                    else if (list.last() is Chord)
+                        list.last().cast<Chord>().last().sharp()
+                }
+
+                ':' -> {
+                    if (list.isEmpty()) throw Exception("the root is necessary for creating a chord")
+
+                    val chord: Chord = if (list.last() is Note) {
+                        val c = Chord(list.removeLast().cast())
+                        list += c
+                        c
+                    } else if (list.last() is Chord) {
+                        list.last().cast()
+                    } else throw Exception("build chord failed: unsupported type: ${list.last()}")
+
+                    doAfter += {
+                        when(it) {
+                            '^' -> cloneAndModifyInChord(chord, 1)
+                            'm' -> cloneAndModifyInChord(chord, 2)
+                            'n' -> cloneAndModifyInChord(chord, 3)
+                            'p' -> cloneAndModifyInChord(chord, 4)
+                            'i' -> {
+                                if (isStave)
+                                    cloneAndModifyInChord(chord, 5)
+                            }
+                            's' -> cloneAndModifyInChord(chord, 6)
+
+                            'v' -> cloneAndModifyInChord(chord, 1, false)
+                            'w' -> cloneAndModifyInChord(chord, 2, false)
+                            'u' -> cloneAndModifyInChord(chord, 3, false)
+                            'q' -> cloneAndModifyInChord(chord, 4, false)
+                            '!' -> {
+                                if (isStave)
+                                    cloneAndModifyInChord(chord, 5, false)
+                            }
+                            'z' -> cloneAndModifyInChord(chord, 6, false)
+
+                            else -> {
+                                chord += list.removeLast().cast()
+                            }
+                        }
+                    }
+                }
+
+                '*' -> {
+                    checkSuffixModifyAvailable()
+                    val times = afterMacro.nextOnlyInt(index, 5)
+                    skipper = when (times) {
+                        in 0..9 -> 1
+                        in 10..99 -> 2
+                        in 100..999 -> 3
+                        in 1000..9999 -> 4
+                        10000 -> 5
+                        else -> throw Exception("only allow repeat 10000 times")
+                    }
+
+                    for (i in 0 until times - 1) {
+                        list += list.last().clone()
+                    }
+                }
+
+                '%' -> {
+                    checkSuffixModifyAvailable()
+                    val velocity = afterMacro.nextOnlyInt(index, 3)
+                    skipper = when (velocity) {
+                        in 0..9 -> 1
+                        in 10..99 -> 2
+                        100 -> 3
+                        else -> throw Exception("velocity should in 0 ~ 100")
+                    }
+
+                    if (list.last() is Note) {
+                        list.last().cast<Note>().velocity = velocity
+                    } else if (list.last() is Chord) {
+                        list.last().cast<Chord>().last().velocity = velocity
+                    }
+                }
+
+                '+' -> {
+                    checkSuffixModifyAvailable()
+                    list.last().duration.double
+                }
+
+                '-' -> {
+                    checkSuffixModifyAvailable()
+                    list.last().duration.halve
+                }
+
+                '.' -> {
+                    checkSuffixModifyAvailable()
+                    list.last().duration.point
                 }
             }
 
-            '\'' -> {
-                checkSuffixModifyAvailable()
-                if (list.last() is Note)
-                    list.last().cast<Note>().flap()
-                else if (list.last() is Chord)
-                    list.last().cast<Chord>().last().flap()
-            }
-
-            '"' -> {
-                checkSuffixModifyAvailable()
-                if (list.last() is Note)
-                    list.last().cast<Note>().sharp()
-                else if (list.last() is Chord)
-                    list.last().cast<Chord>().last().sharp()
-            }
-
-            ':' -> {
-                if (list.isEmpty()) throw Exception("the root is necessary for creating a chord")
-
-                val chord: Chord = if (list.last() is Note) {
-                    val c = Chord(list.removeLast().cast())
-                    list += c
-                    c
-                } else if (list.last() is Chord) {
-                    list.last().cast()
-                } else throw Exception("build chord failed: unsupported type: ${list.last()}")
-
-                doAfter += {
-                    when(it) {
-                        '^' -> cloneAndModifyInChord(chord, 1)
-                        'm' -> cloneAndModifyInChord(chord, 2)
-                        'n' -> cloneAndModifyInChord(chord, 3)
-                        'p' -> cloneAndModifyInChord(chord, 4)
-                        'i' -> {
-                            if (isStave)
-                                cloneAndModifyInChord(chord, 5)
-                        }
-                        's' -> cloneAndModifyInChord(chord, 6)
-
-                        'v' -> cloneAndModifyInChord(chord, 1, false)
-                        'w' -> cloneAndModifyInChord(chord, 2, false)
-                        'u' -> cloneAndModifyInChord(chord, 3, false)
-                        'q' -> cloneAndModifyInChord(chord, 4, false)
-                        '!' -> {
-                            if (isStave)
-                                cloneAndModifyInChord(chord, 5, false)
-                        }
-                        'z' -> cloneAndModifyInChord(chord, 6, false)
-
-                        else -> {
-                            chord += list.removeLast().cast()
-                        }
+            if (isStave) {
+                when(char) {
+                    in "abcdefgABCDEFG~^vmwnui!pqsz" -> {
+                        doAfter.asReversed().forEach { it(char) }
+                        doAfter.clear()
+                    }
+                }
+            } else {
+                when(char) {
+                    in "1234567~^vmwnupqsz" -> {
+                        doAfter.asReversed().forEach { it(char) }
+                        doAfter.clear()
                     }
                 }
             }
 
-            '*' -> {
-                doAfter += {
-                    if (it in '1'..'9') {
-                        if (!isStave)
-                            list.removeLast()
-                        for (i in 0 until it.code - 49) {
-                            list += list.last().clone()
-                        }
-                    }
-                }
-            }
-
-            '+' -> {
-                checkSuffixModifyAvailable()
-                list.last().duration.double
-            }
-
-            '-' -> {
-                checkSuffixModifyAvailable()
-                list.last().duration.halve
-            }
-
-            '.' -> {
-                checkSuffixModifyAvailable()
-                list.last().duration.point
-            }
-        }
-
-        if (isStave) {
-            when(char) {
-                in "abcdefgABCDEFG~^vmwnui!pqsz" -> {
-                    doAfter.asReversed().forEach { it(char) }
-                    doAfter.clear()
-                }
-            }
-        } else {
-            when(char) {
-                in "1234567~^vmwnupqsz" -> {
-                    doAfter.asReversed().forEach { it(char) }
-                    doAfter.clear()
-                }
-            }
-        }
+        } else if (skipper > 0) {
+            skipper --
+            // println("skip: $char, $index")
+        } else throw Exception("skipper should not be negative")
     }
 
     return list
@@ -440,6 +501,8 @@ class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
         val ifNotDefinePattern = Regex("if!def\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
         val repeatPattern = Regex("repeat\\s+(\\d+)\\s*:\\s*[^>]+")
         val includePattern = Regex("include\\s+((https?|ftp|file)://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]")
+        val commentPattern = Regex("#\\s+[\\s\\S]+")
+        val velocityPattern = Regex("velocity\\s+(linear\\s|func\\s)(\\d{1,3}\\s*~\\s*\\d{1,3})\\s*:\\s*[^>]+")
     }
 
     var recursionCount = 0 // 递归次数统计
@@ -570,7 +633,7 @@ class Rest(override val duration: InMusicScore.DurationDescribe = InMusicScore.D
 class Note(
     var code: Int,
     override val duration: InMusicScore.DurationDescribe = InMusicScore.DurationDescribe(),
-    val velocity: Int = 100,
+    var velocity: Int = 100,
     var isNature: Boolean = false // 是否添加了还原符号
 ) : InMusicScore {
 
@@ -616,17 +679,17 @@ class Note(
     }
 
     override fun clone(): Note {
-        return Note(code, duration.clone())
+        return Note(code, duration.clone(), velocity, isNature)
     }
 
-    override fun toString(): String = "[$code=${noteNameFromCode(code)}$pitch|$duration|$velocity]"
+    override fun toString(): String = "[${if(isNature) "@" else ""}$code=${noteNameFromCode(code)}$pitch|$duration|$velocity]"
 }
 
-data class SimpleNoteDescriber(val name: String, var duration: Double, var pitch: Int = 4, val isRest: Boolean = false) {
+data class SimpleNoteDescriber(val name: String, var duration: Double, var velocity: Int = 100, var pitch: Int = 4, val isRest: Boolean = false) {
 
     companion object {
         fun fromNote(note: Note): SimpleNoteDescriber {
-            return SimpleNoteDescriber(getNoteName(note), note.duration.value, note.pitch)
+            return SimpleNoteDescriber(getNoteName(note), note.duration.value, note.velocity, note.pitch)
         }
 
         fun fromRest(rest: Rest): SimpleNoteDescriber {
@@ -640,5 +703,5 @@ data class SimpleNoteDescriber(val name: String, var duration: Double, var pitch
         }
     }
 
-    override fun toString(): String = if (isRest) "O*$duration" else "$name[$pitch,$duration]"
+    override fun toString(): String = if (isRest) "O*$duration" else "$name[$pitch,$duration,$velocity]"
 }

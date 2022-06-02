@@ -4,7 +4,19 @@ import whiter.music.mider.dsl.MiderDSL
 import whiter.music.mider.dsl.play
 
 fun main(args: Array<String>) {
-    MiderDSL.instrument.valueOf("piano")
+//    MiderDSL.instrument.valueOf("piano")
+       toInMusicScoreList("""
+            (repeat 16:1↑2↑5↑1↑2↑5↑1↑2↑5↑1↑2↑5↑)(repeat 4:671↑671↑45645651↑3↑51↑3↑572↑572↑)
+            (repeat 4:3++0++0++4++0++0++5++0++0++6++005++00)(repeat 4:6006004004001↑001↑00500500)
+            0++033022011000000++000+00333022013003052001000++033042011000000++000+02222032011++000++000++033022011000000++000+00333022013003052001000++033042011000000++000+02222032011+0000++0055555055043021001023022005555055043023000212000001023040032011031020000001023040034050043022032011
+
+       """.trimIndent(), useMacro = true, isStave = false).forEach(::println)
+
+//       println(macro("""
+//             (# aa)
+//       """))
+
+//       println("4t234".nextOnlyInt(0,3))
 
 //    play {
 //        !toMiderNoteList("F+^B\$C6GFG CE\$")

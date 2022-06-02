@@ -38,8 +38,8 @@ object MidiProduce : KotlinPlugin(
     // todo 1. 出场自带 bgm ( 频率
     // todo 2. 相对音准小测试
     // todo 3. 隔群发送语音, 寻觅知音 (
-    // todo 4. 增加乐器(
-    // todo 5. 增加力度
+    // todo 4. 增加乐器( done but to be fix
+    // todo 5. 增加力度 done
     // todo 6. mider code for js
     // todo 7. 权限系统, 话说就发个语音有引入命令权限的必要吗 (
 
@@ -158,6 +158,7 @@ object MidiProduce : KotlinPlugin(
                         val before = Config.formatMode
                         Config.formatMode = mode
                         if (mode.contains("silk4j")) AudioUtils.init(tmpDir)
+                        cache.clear()
                         subject.sendMessage("设置格式转换模式成功, 由 $before 切换为 $mode")
                     }
 

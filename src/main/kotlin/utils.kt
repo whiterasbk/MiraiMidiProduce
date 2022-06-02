@@ -17,6 +17,7 @@ import java.io.*
 import java.nio.charset.Charset
 import javax.sound.sampled.AudioInputStream
 import javax.sound.sampled.AudioSystem
+import kotlin.math.pow
 
 
 suspend fun MessageEvent.matchRegex(reg: Regex, block: suspend (String) -> Unit) {
@@ -356,4 +357,23 @@ fun String.execute(charset: Charset = Charset.forName("utf-8"), timeout: Long = 
     val out = outputStream.toString(charset)
     val error = errorStream.toString(charset)
     return out to error
+}
+
+// 求给定 index 之后
+fun String.nextOnlyInt(index: Int, maxBit: Int): Int {
+    var sum = 0
+    var count = 0
+    for (i in 1 .. maxBit) {
+        if (index + i < length) {
+            val nextChar = this[index + i]
+            if (nextChar in '0'..'9') {
+                sum = sum * 10 + (nextChar.code - 48)
+                count ++
+            } else break
+        }
+    }
+
+    if (count == 0) throw Exception("there's no integer found after char '${this[index]}', index: $index or maxCount < 1")
+
+    return sum
 }
