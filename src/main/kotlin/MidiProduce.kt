@@ -104,20 +104,12 @@ object MidiProduce : KotlinPlugin(
 
         try {
             tmpDir.listFiles(FileFilter {
-                it.extension == "so" ||
-                        it.extension == "dll" ||
-                        it.extension == "lib" ||
-                        it.extension == "mp3" ||
-                        it.extension == "silk" ||
-                        it.extension == "wave" ||
-                        it.extension == "wav" ||
-                        it.extension == "amr" ||
-                        it.extension == "mid" ||
-                        it.extension == "midi" ||
-                        it.extension == "mscz" ||
-                        it.extension == "png" ||
-                        it.extension == "pdf" ||
-                        it.extension == "pcm"
+                when(it.extension) {
+                    "so", "dll", "lib", "mp3", "silk", "wave", "wav", "amr",
+                    "mid", "midi", "mscz", "png", "pdf", "pcm"
+                        -> true
+                    else -> false
+                }
             })?.forEach {
                 it.delete()
             }
@@ -185,6 +177,7 @@ object MidiProduce : KotlinPlugin(
         matchRegex(cmdRegex) { msg ->
 
             var isRenderingNotation = false
+            var isUploadMidi = false
             var notationType: NotationType? = null
 
             if (Config.cache && msg in cache && (notationType == NotationType.PNGS || notationType == null)) {
@@ -200,8 +193,6 @@ object MidiProduce : KotlinPlugin(
                     val noteLists = msg.split(startRegex).toMutableList()
                     noteLists.removeFirst()
                     val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
-
-                    val isUploadMidi = "midi" in configParts.joinToString(" ")
 
                     val dslBlock: MiderDSL.() -> Unit = {
 
@@ -234,35 +225,47 @@ object MidiProduce : KotlinPlugin(
                                 defaultNoteDuration = 1
 
                                 configParts[index].split(";").forEach {
-                                    if (it == "f") {
-                                        defaultPitch = 3
-                                    } else if (it.matches(Regex("\\d+b"))) {
-                                        changeBpm(it.replace("b", "").toInt())
-                                    } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
-                                        mode = it
-                                    } else if (it.matches(Regex("\\d"))) {
-                                        defaultPitch = it.toInt()
-                                    } else if (it.matches(Regex("\\d/\\d"))) {
-                                        val ts = it.split("/")
-                                        changeTimeSignature(ts[0].toInt() to ts[1].toInt())
-                                    } else if (it.matches(Regex("i=[a-zA-Z-]+"))) {
-                                        // 两个都设置下 (
-                                        program = MiderDSL.instrument.valueOf(it.replace("i=", ""))
-                                        // todo fix
-                                        if (!Config.formatMode.contains("muse-score")) {
-                                            changeOuterProgram(it.replace("i=", ""))
-                                            ifDebug("set outer program to $program")
+                                    when (it) {
+                                        "f" -> defaultPitch = 3
+
+                                        "midi" -> isUploadMidi = true
+
+                                        "img" -> {
+                                            isRenderingNotation = true
+                                            notationType = NotationType.PNGS
                                         }
-                                        ifDebug("set program to $program")
-                                    } else if (it == "img") {
-                                        isRenderingNotation = true
-                                        notationType = NotationType.PNGS
-                                    } else if (it =="pdf") {
-                                        isRenderingNotation = true
-                                        notationType = NotationType.PDF
-                                    } else if (it == "mscz") {
-                                        isRenderingNotation = true
-                                        notationType = NotationType.MSCZ
+
+                                        "pdf" -> {
+                                            isRenderingNotation = true
+                                            notationType = NotationType.PDF
+                                        }
+
+                                        "mscz" -> {
+                                            isRenderingNotation = true
+                                            notationType = NotationType.MSCZ
+                                        }
+
+                                        else -> {
+                                            if (it.matches(Regex("\\d+b"))) {
+                                                changeBpm(it.replace("b", "").toInt())
+                                            } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
+                                                mode = it
+                                            } else if (it.matches(Regex("\\d"))) {
+                                                defaultPitch = it.toInt()
+                                            } else if (it.matches(Regex("\\d/\\d"))) {
+                                                val ts = it.split("/")
+                                                changeTimeSignature(ts[0].toInt() to ts[1].toInt())
+                                            } else if (it.matches(Regex("i=[a-zA-Z-]+"))) {
+                                                // 两个都设置下 (
+                                                program = MiderDSL.instrument.valueOf(it.replace("i=", ""))
+                                                // todo fix
+                                                if (!Config.formatMode.contains("muse-score")) {
+                                                    changeOuterProgram(it.replace("i=", ""))
+                                                    ifDebug("set outer program to $program")
+                                                }
+                                                ifDebug("set program to $program")
+                                            }
+                                        }
                                     }
                                 }
 
@@ -336,6 +339,7 @@ object MidiProduce : KotlinPlugin(
                             }
                         }
                     } else if (isUploadMidi && subject is FileSupported) {
+                        // 上传 midi
                         midiStream.toExternalResource().use {
                             (subject as FileSupported).files.uploadNewFile(
                                 "generate-${System.currentTimeMillis()}.mid",
@@ -343,14 +347,13 @@ object MidiProduce : KotlinPlugin(
                             )
                         }
                     } else {
+
                         val stream = generateAudioStreamByFormatMode(midiStream)
                         when (this) {
 
                             is GroupMessageEvent -> {
                                 val size = stream.available()
-
                                 if (size > 1024 * 1024) logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
-
                                 if (size > Config.uploadSize) {
                                     stream.toExternalResource().use {
                                         group.files.uploadNewFile(
@@ -383,7 +386,6 @@ object MidiProduce : KotlinPlugin(
                         }
                     }
                 }
-
             }
         }
     }
@@ -403,9 +405,9 @@ enum class NotationType {
 
 object Config : AutoSavePluginConfig("config") {
 
-    @ValueDescription("自嘲时间")
+    @ValueDescription("2000year")
     val selfMockeryTime by value(7 * 1000L)
-    @ValueDescription("是否自嘲(")
+    @ValueDescription("is2000year(")
     val selfMockery by value(true)
 
     @ValueDescription("命令执行超时时间")
@@ -434,7 +436,7 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("是否启用缓存")
     val cache by value(true)
 
-    @ValueDescription("格式转换输出 可选的有: \n" +
+    @ValueDescription("格式转换输出模式, 可选的有: \n" +
             "internal->java-lame(默认)\n" +
             "internal->java-lame->silk4j\n" +
             "timidity->ffmpeg\n" +

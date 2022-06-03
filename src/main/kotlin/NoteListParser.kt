@@ -211,7 +211,7 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
     val doAfter = mutableListOf<(Char)->Unit>()
     var skipper = 0 // 跳过多少个字符 0 表示不跳过
 
-    val afterMacro = seq.let { if (useMacro) macro(it, config) else it }
+    val afterMacro = if (useMacro) macro(seq, config) else seq
 
     fun checkSuffixModifyAvailable() {
         if (list.isEmpty()) throw Exception("before modify or clone the note, you should insert at least one\ninput: $afterMacro\nisStave: $isStave")
@@ -436,8 +436,8 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
                     skipper = when (velocity) {
                         in 0..9 -> 1
                         in 10..99 -> 2
-                        100 -> 3
-                        else -> throw Exception("velocity should in 0 ~ 100")
+                        in 100..127 -> 3
+                        else -> throw Exception("velocity should in 0 ~ 127")
                     }
 
                     if (list.last() is Note) {
