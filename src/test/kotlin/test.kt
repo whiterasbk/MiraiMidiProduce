@@ -3,11 +3,10 @@ package bot.music.whiter
 import whiter.music.mider.dsl.play
 
 fun main(args: Array<String>) {
-       play {
-              O*15; A+D
-              debug()
-       }
-
+//       play {
+//              O*15; A+D
+//              debug()
+//       }
 //    MiderDSL.instrument.valueOf("piano")
 //       toInMusicScoreList("""
 //            (repeat 16:1↑2↑5↑1↑2↑5↑1↑2↑5↑1↑2↑5↑)(repeat 4:671↑671↑45645651↑3↑51↑3↑572↑572↑)

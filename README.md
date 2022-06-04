@@ -17,10 +17,11 @@
 
 ```shell
 # 命令格式 (一个命令代表一条轨道)
->bpm[;mode][;pitch][;midi][;img][;pdf][;mscz]>音名序列 | 唱名序列
+>bpm[;mode][;pitch][;i=instrument][;midi][;img][;pdf][;mscz]>音名序列 | 唱名序列
 bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
 mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
+i=instrument: 选择乐器, 可选
 midi: 是否仅上传 midi 文件, 可选
 img: 是否仅上传 png 格式的乐谱
 pdf: 是否仅上传 pdf 文件, 可选
@@ -28,6 +29,10 @@ mscz: 是否仅上传 mscz 文件, 可选
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
 # 获取帮助
 >!help>
+# 设置formatMode
+>!formatMode=mode>
+# 清理缓存
+>!clear-cache>
 ```
 **注: 涉及乐谱生成需要先安装 Muse Score** 见[转换乐谱](#转换乐谱)
 
@@ -55,6 +60,7 @@ mscz: 是否仅上传 mscz 文件, 可选
  v : 克隆上一个音符, 并降低 1 度
  ↑ : 升高一个八度
  ↓ : 降低一个八度
+ % : 调整力度, 后接最多三位数字
  & : 还原符号
 类似的用法还有 m-w, n-u, i-!, q-p, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
 
@@ -84,6 +90,7 @@ A~G: A5~G5
 7. (if!def symbol: note sequence) 如果未定义 symbol 则展开
 8. (macro name param1[,params]: note sequence @[param1]) 定义宏
 9. (!name arg1[,arg2]) 展开宏
+10. (velocity linear from~to: note sequence) 调整 note sequence 的力度, 仅适用于长音名序列
 目前宏均不可嵌套使用
 ```
 
