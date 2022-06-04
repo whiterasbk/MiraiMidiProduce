@@ -41,6 +41,7 @@ object MidiProduce : KotlinPlugin(
     // todo 5. 增加力度 done
     // todo 6. mider code for js
     // todo 7. 权限系统, 话说就发个语音有引入命令权限的必要吗 (
+    // todo 8. midi 转 mider code
 
     private val cache = mutableMapOf<String, Message>()
     val tmpDir = resolveDataFile("tmp")
@@ -150,10 +151,10 @@ object MidiProduce : KotlinPlugin(
                         Config.formatMode = mode
                         if (mode.contains("silk4j")) AudioUtils.init(tmpDir)
                         cache.clear()
-                        subject.sendMessage("设置格式转换模式成功, 由 $before 切换为 $mode")
+                        subject.sendMessage("设置生成模式成功, 由 $before 切换为 $mode")
                     }
 
-                    else -> subject.sendMessage("不支持的格式, 请确认设置的值在 以下列表\n" +
+                    else -> subject.sendMessage("不支持的模式, 请确认设置的值在以下列表\n" +
                             "internal->java-lame\n" +
                             "internal->java-lame->silk4j,\n" +
                             "timidity->ffmpeg,\n" +
@@ -165,6 +166,7 @@ object MidiProduce : KotlinPlugin(
                 }
             } else if (content == "clear-cache") {
                 cache.clear()
+                subject.sendMessage("cache cleared")
             }
         }
     }
@@ -439,8 +441,8 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("是否启用缓存")
     val cache by value(true)
 
-    @ValueDescription("格式转换输出模式, 可选的有: \n" +
-            "internal->java-lame(默认)\n" +
+    @ValueDescription("生成模式, 可选的有: \n" +
+            "internal->java-lame (默认)\n" +
             "internal->java-lame->silk4j\n" +
             "timidity->ffmpeg\n" +
             "timidity->ffmpeg->silk4j\n" +

@@ -16,12 +16,14 @@
 ## 使用方法
 
 ```shell
-# 命令格式 (一个命令代表一条轨道)
->bpm[;mode][;pitch][;i=instrument][;midi][;img][;pdf][;mscz]>音名序列 | 唱名序列
-bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g 或者 f 代替
-mode: 调式, 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
+在 mider code 里, 称形如 >g>sequence 为一条轨道, 而形如 >!cmd> 为一条内建指令
+# 轨道格式
+>bpm[;mode][;pitch][;i=instrument][;timeSignature][;midi|img|pdf|mscz]>音名序列 | 唱名序列
+bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g(pitch=4&bpm=80) 或者 f(pitch=3&bpm=80) 代替
+mode: 调式(若为小调则为同名小调), 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
 pitch: 音域(音高), 可选, 默认为 4
 i=instrument: 选择乐器, 可选
+timeSignature: 拍号, 可选
 midi: 是否仅上传 midi 文件, 可选
 img: 是否仅上传 png 格式的乐谱
 pdf: 是否仅上传 pdf 文件, 可选
@@ -29,7 +31,7 @@ mscz: 是否仅上传 mscz 文件, 可选
 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
 # 获取帮助
 >!help>
-# 设置formatMode
+# 设置 formatMode
 >!formatMode=mode>
 # 清理缓存
 >!clear-cache>
@@ -62,7 +64,7 @@ mscz: 是否仅上传 mscz 文件, 可选
  ↓ : 降低一个八度
  % : 调整力度, 后接最多三位数字
  & : 还原符号
-类似的用法还有 m-w, n-u, i-!, q-p, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
+类似的用法还有 m-w, n-u, q-p, i-!, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
 
 # 如果是音名序列则以下规则生效
 a~g: A4~G4
@@ -150,7 +152,7 @@ A~G: A5~G5
 >g>c:m:#m (# 号将不起作用
 >g>c:m:m" (这种形式能正常解析
 ```
-同样支持轨道多轨
+同样支持多轨
 ```
 >g>c d e (g 的 pitch 默认为 4
 >f>a b c (f 的 pitch 默认为 3, 可以当作低音轨道
@@ -167,9 +169,9 @@ A~G: A5~G5
 
 或者也可以修改配置中`mscoreConvertMidi2MSCZCommand` 等的值为安装目录
 
-#### 如您的安装的可执行程序启动命令不是 `MuseScore3`, 您需要手动将 `config.yml` 中的 `MuseScore3` **替换**成正确的 `MuseScore` 启动命令
+#### 如您的安装的可执行程序启动命令(可执行程序的名字)不是 `MuseScore3`, 您需要手动将 `config.yml` 中的 `MuseScore3` **替换**成正确的 `MuseScore` 启动命令
 
-最后在命令中添加 `;pdf` 或 `;img` 即可得到渲染好的乐谱
+最后在轨道中添加 `;pdf` 或 `;img` 即可得到渲染好的乐谱
 
 ![44f9b717-4c28-453e-b99c-2fc8567828c8-image.png](https://mirai.mamoe.net/assets/uploads/files/1654083503837-44f9b717-4c28-453e-b99c-2fc8567828c8-image.png)
 
@@ -189,8 +191,8 @@ mscoreConvertMSCZ2PDFCommand: 'MuseScore3 {{input}} -o {{output}}'
 mscoreConvertMSCZ2PNGSCommand: 'MuseScore3 {{input}} -o {{output}}'
 # silk 比特率(吧
 silkBitsRate: 24000
-# 格式转换输出 可选的有:
-# internal->java-lame(默认)
+# 生成模式 可选的有:
+# internal->java-lame (默认)
 # internal->java-lame->silk4j
 # timidity->ffmpeg
 # timidity->ffmpeg->silk4j
@@ -237,7 +239,10 @@ uploadSize: 1153433
 
 ## 修改音色
 
-目前只能通过安装 `timidity` 来实现
+目前 `internal` 无法修改音色
+
+可以通过安装 `timidity` 或 `Muse Score` 来实现
+
 
 ## release 中的多个发行包
 
