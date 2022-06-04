@@ -226,6 +226,9 @@ object MidiProduce : KotlinPlugin(
 
                                 configParts[index].split(";").forEach {
                                     when (it) {
+
+                                        "g" -> defaultPitch = 4 // 这样应该能提升性能吧(
+
                                         "f" -> defaultPitch = 3
 
                                         "midi" -> isUploadMidi = true
