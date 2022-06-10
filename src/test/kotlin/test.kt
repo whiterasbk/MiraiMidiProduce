@@ -1,8 +1,34 @@
 package bot.music.whiter
 
-import whiter.music.mider.dsl.play
+import org.audiveris.proxymusic.ObjectFactory
+
 
 fun main(args: Array<String>) {
+
+
+    val factory = ObjectFactory()
+    val scorePartwise = factory.createScorePartwise()
+    val work = factory.createWork()
+
+    scorePartwise.work = work
+    work.workTitle = "Title for the work"
+    work.workNumber = "Number for the work"
+
+    // Work::Opus
+
+    // Work::Opus
+    val opus = factory.createOpus()
+    work.opus = opus
+    opus.setHref("Href to opus")
+    opus.setType("simple")
+    opus.setRole("Role of opus") // Some text
+
+    opus.setTitle("Title of opus") // Some text
+
+    opus.setShow("new") // new, replace, embed, other, none
+
+    opus.setActuate("onLoad") // onRequest, onLoad, other, none
+
 //       play {
 //              O*15; A+D
 //              debug()
