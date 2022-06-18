@@ -18,15 +18,16 @@ repositories {
         url = uri("https://maven.pkg.github.com/mzdluo123/silk4j")
 
         credentials {
-            username = "whiterasbk" // 填写用户名
-            password = File("github-package-token").readText() // 填写token
+            var texts = File("github-package-token").readText().split(",")
+            username = texts[0].trim() // 填写用户名
+            password = texts[1].trim() // 填写token
         }
     }
 }
 
 dependencies {
     implementation("com.github.nwaldispuehl:java-lame:v3.98.4")
-    implementation("com.github.whiterasbk:mider:pre-beta0.9.3-2")
+    implementation("com.github.whiterasbk:mider:4e2b1f63c0")
     implementation("io.github.mzdluo123:silk4j:1.1-dev")
     implementation("org.apache.commons:commons-exec:1.3")
 }
