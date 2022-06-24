@@ -1,6 +1,7 @@
 package bot.music.whiter
 
 import net.mamoe.mirai.console.util.cast
+import whiter.music.mider.code.MacroConfiguration
 import java.io.File
 import java.net.URL
 import java.util.*
@@ -486,71 +487,6 @@ fun toInMusicScoreList(seq: String, pitch: Int = 4, isStave: Boolean = true, use
     }
 
     return list
-}
-
-class MacroConfiguration(build: MacroConfigurationBuilder.() -> Unit = {}) {
-
-    companion object {
-        val variableNamePattern = Regex("([a-zA-Z_@]\\w*)")
-        val getVariableValuePattern = Regex("=\\s*${variableNamePattern.pattern}\\s*")
-        val definePattern = Regex("def\\s+${variableNamePattern.pattern}\\s*=\\s*[^>\\s][^>]*")
-        val executePattern = Regex("def\\s+${variableNamePattern.pattern}\\s*:\\s*[^>\\s][^>]*")
-        val macroDefinePattern = Regex("macro\\s+[a-zA-Z_]\\w*\\s+([a-zA-Z_]\\w*)(\\s*,\\s*([a-zA-Z_]\\w*))*\\s*:(\\s*[^>\\s][^>]*)")
-        val macroUsePattern = Regex("!([a-zA-Z_]\\w*)\\s+[^>]+")
-        val ifDefinePattern = Regex("ifdef\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
-        val ifNotDefinePattern = Regex("if!def\\s+([a-zA-Z_]\\w*)\\s+[^>]+")
-        val repeatPattern = Regex("repeat\\s+(\\d+)\\s*:\\s*[^>]+")
-        val includePattern = Regex("include\\s+((https?|ftp|file)://)?[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]")
-        val commentPattern = Regex("#\\s+[\\s\\S]+")
-        val velocityPattern = Regex("velocity\\s+(linear\\s|func\\s)(\\d{1,3}\\s*~\\s*\\d{1,3})\\s*:\\s*[^>]+")
-    }
-
-    var recursionCount = 0 // 递归次数统计
-    val logger: LoggerImpl = LoggerImpl()
-//    var useStrict = false
-    var recursionLimit = 10
-    var outerScope = mutableMapOf<String, String>()
-    var macroScope = mutableMapOf<String, Pair<List<String>, String>>()
-
-    var fetch: (String) -> String = {
-        if (it.startsWith("file://"))
-            File(it.replace("file://", "")).readText()
-        else {
-            URL(it).openStream().reader().readText()
-        }
-    }
-
-    init {
-        build(MacroConfigurationBuilder())
-    }
-
-    class LoggerImpl {
-        var info: (String) -> Unit = { println("info>>$it") }
-        var error: (Exception) -> Unit = { println("err>>$it") }
-    }
-
-    inner class MacroConfigurationBuilder {
-        fun loggerInfo(block: (String)-> Unit) {
-            logger.info = block
-        }
-
-        fun loggerError(block: (Exception)-> Unit) {
-            logger.error = block
-        }
-
-        fun fetchMethod(block: (String)-> String) {
-            fetch = block
-        }
-
-        fun setScopes(outer: MutableMap<String, String>, macro: MutableMap<String, Pair<List<String>, String>>) {
-            outerScope = outer
-            macroScope = macro
-        }
-
-        fun recursionLimit(times: Int) {
-            recursionLimit = times
-        }
-    }
 }
 
 interface InMusicScore: Cloneable {
