@@ -29,6 +29,7 @@ dependencies {
     implementation("com.github.whiterasbk:mider:pre-beta0.9.3-2")
     implementation("io.github.mzdluo123:silk4j:1.1-dev")
     implementation("org.apache.commons:commons-exec:1.3")
+    implementation("org.audiveris:proxymusic:4.0.1")
 }
 
 //val _shadowJvmJar by tasks.creating(com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) sd@{
