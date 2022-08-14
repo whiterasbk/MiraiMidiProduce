@@ -18,18 +18,22 @@ repositories {
         url = uri("https://maven.pkg.github.com/mzdluo123/silk4j")
 
         credentials {
-            username = "whiterasbk" // 填写用户名
-            password = File("github-package-token").readText() // 填写token
+            val texts = File("github-package-token").readText().split(",")
+            username = texts[0].trim() // 填写用户名
+            password = texts[1].trim() // 填写 token
         }
     }
 }
 
 dependencies {
     implementation("com.github.nwaldispuehl:java-lame:v3.98.4")
-    implementation("com.github.whiterasbk:mider:pre-beta0.9.3-2")
+    implementation("com.github.whiterasbk:mider:beta0.9.7")
     implementation("io.github.mzdluo123:silk4j:1.1-dev")
     implementation("org.apache.commons:commons-exec:1.3")
-    implementation("org.audiveris:proxymusic:4.0.1")
+    implementation("com.belerweb:pinyin4j:2.5.1")
+
+    // https://mvnrepository.com/artifact/io.ktor/ktor-client-core
+    runtimeOnly("io.ktor:ktor-client-core:2.0.0")
 }
 
 //val _shadowJvmJar by tasks.creating(com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) sd@{

@@ -7,6 +7,11 @@ import net.mamoe.mirai.message.data.content
 import net.sourceforge.lame.lowlevel.LameEncoder
 import net.sourceforge.lame.mp3.Lame
 import net.sourceforge.lame.mp3.MPEGMode
+import net.sourceforge.pinyin4j.PinyinHelper
+import net.sourceforge.pinyin4j.format.HanyuPinyinCaseType
+import net.sourceforge.pinyin4j.format.HanyuPinyinOutputFormat
+import net.sourceforge.pinyin4j.format.HanyuPinyinToneType
+import net.sourceforge.pinyin4j.format.HanyuPinyinVCharType
 import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
 import org.apache.commons.exec.ExecuteWatchdog
@@ -20,11 +25,13 @@ import javax.sound.sampled.AudioSystem
 import kotlin.math.pow
 
 
-suspend fun MessageEvent.matchRegex(reg: Regex, block: suspend (String) -> Unit) {
-    if (message.content.matches(reg)) {
-        block(message.content)
+suspend fun String.matchRegex(reg: Regex, block: suspend (String) -> Unit) {
+    if (this.matches(reg)) {
+        block(this)
     }
 }
+
+suspend fun MessageEvent.matchRegex(reg: Regex, block: suspend (String) -> Unit) = message.content.matchRegex(reg, block)
 
 suspend fun MessageEvent.matchRegex(reg: String, block: suspend (String) -> Unit) = matchRegex(Regex(reg), block)
 
@@ -64,90 +71,6 @@ fun ifDebug(info: String) {
     if (Config.debug) MidiProduce.logger.info(info)
 }
 
-fun noteBaseOffset(note: String): Int {
-    return when (note) {
-        "C", "#B" -> 0
-        "#C", "bD" -> 1
-        "D" -> 2
-        "#D", "bE" -> 3
-        "E", "bF" -> 4
-        "F", "#E" -> 5
-        "#F", "bG" -> 6
-        "G" -> 7
-        "#G", "bA" -> 8
-        "A" -> 9
-        "#A", "bB" -> 10
-        "B", "bC" -> 11
-        else -> throw Exception("no such note $note")
-    }
-}
-
-fun noteNameFromCode(code: Int): String {
-    return when(code % 12) {
-        0 -> "C"
-        1 -> "#C"
-        2 -> "D"
-        3 -> "#D"
-        4 -> "E"
-        5 -> "F"
-        6 -> "#F"
-        7 -> "G"
-        8 -> "#G"
-        9 -> "A"
-        10 -> "#A"
-        11 -> "B"
-        else -> throw Exception("no such note code: $code")
-    }
-}
-
-fun charCount(str: CharSequence, char: Char): Int {
-    return str.filter { it == char }.count()
-}
-
-fun deriveInterval(index: Int, scale: Array<Int> = arrayOf(2, 2, 1, 2, 2, 2, 1)): Int {
-    var sum = 0
-    for (i in 0 until index) {
-        sum += scale[i]
-    }
-    return sum
-}
-
-fun nextNoteIntervalInMajorScale(code: Int): Int {
-    return when(code % 12) {
-        0 -> 2  // C
-        1 -> 2  // C#
-        2 -> 2  // D
-        3 -> 2  // D#
-        4 -> 1  // E
-        5 -> 2  // F
-        6 -> 2  // F#
-        7 -> 2  // G
-        8 -> 2  // G#
-        9 -> 2  // A
-        10 -> 2 // A#
-        11 -> 1 // B
-        else -> 2
-    }
-}
-
-fun previousNoteIntervalInMajorScale(code: Int): Int {
-    return when(code % 12) {
-        0 -> 1  // C
-        1 -> 2  // C#
-        2 -> 2  // D
-        3 -> 2  // D#
-        4 -> 2  // E
-        5 -> 1  // F
-        6 -> 2  // F#
-        7 -> 2  // G
-        8 -> 2  // G#
-        9 -> 2  // A
-        10 -> 2 // A#
-        11 -> 2 // B
-        else -> 2
-    }
-}
-
 fun Long.autoTimeUnit(): String {
     return if (this < 1000) {
         "${this}ms"
@@ -165,6 +88,34 @@ suspend fun time(block: suspend () -> Unit) {
         val useTime = System.currentTimeMillis() - startCountingTime
         MidiProduce.logger.info("生成用时: ${useTime.autoTimeUnit()}")
     } else block()
+}
+
+fun generateAudioStreamByFormatModeFromWav(wavStream: InputStream): InputStream {
+    return when (Config.formatMode) {
+        "internal->java-lame->silk4j" -> {
+            val mp3 = wave2mp3Stream(AudioSystem.getAudioInputStream(wavStream), GOOD_QUALITY_BITRATE = Config.quality)
+            val silk = AudioUtils.mp3ToSilk(mp3, Config.silkBitsRate)
+            silk.deleteOnExit()
+            silk.inputStream()
+        }
+
+        "timidity->ffmpeg" -> {
+            val mp3 = ffmpegConvert(wavStream)
+            mp3.inputStream()
+        }
+
+        "timidity->ffmpeg->silk4j" -> {
+            val mp3 = ffmpegConvert(wavStream)
+            val silk = AudioUtils.mp3ToSilk(mp3, Config.silkBitsRate)
+            silk.deleteOnExit()
+            silk.inputStream()
+        }
+
+        else -> {
+            // internal->java-lame
+            wave2mp3Stream(AudioSystem.getAudioInputStream(wavStream), GOOD_QUALITY_BITRATE = Config.quality)
+        }
+    }
 }
 
 fun generateAudioStreamByFormatMode(midiStream: InputStream): InputStream {
@@ -245,7 +196,7 @@ fun generateAudioStreamByFormatMode(midiStream: InputStream): InputStream {
     }
 }
 
-fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Any): InputStream = generateAudioStreamByFormatMode(fromDsl(block).inStream())
+fun generateAudioStreamByFormatMode(block: MiderDSL.() -> Unit): InputStream = generateAudioStreamByFormatMode(fromDsl(block).inStream())
 
 fun timidityConvert(midiFileStream: InputStream): File {
     val midiFile = AudioUtilsGetTempFile("mid")
@@ -359,21 +310,27 @@ fun String.execute(charset: Charset = Charset.forName("utf-8"), timeout: Long = 
     return out to error
 }
 
-// 求给定 index 之后
-fun String.nextOnlyInt(index: Int, maxBit: Int): Int {
-    var sum = 0
-    var count = 0
-    for (i in 1 .. maxBit) {
-        if (index + i < length) {
-            val nextChar = this[index + i]
-            if (nextChar in '0'..'9') {
-                sum = sum * 10 + (nextChar.code - 48)
-                count ++
-            } else break
-        }
+fun String.toPinyin(): String {
+    val pyf = HanyuPinyinOutputFormat()
+    // 设置大小写
+    pyf.caseType = HanyuPinyinCaseType.LOWERCASE
+    // 设置声调表示方法
+    pyf.toneType = HanyuPinyinToneType.WITH_TONE_NUMBER
+    // 设置字母u表示方法
+    pyf.vCharType = HanyuPinyinVCharType.WITH_V
+
+    val sb = StringBuilder()
+    val regex = Regex("[\\u4E00-\\u9FA5]+")
+
+    for (i in indices) {
+        // 判断是否为汉字字符
+        if (regex.matches(this[i].toString())) {
+            val s = PinyinHelper.toHanyuPinyinStringArray(this[i], pyf)
+            if (s != null)
+                sb.append(s[0])
+
+        } else sb.append(this[i])
     }
 
-    if (count == 0) throw Exception("there's no integer found after char '${this[index]}', index: $index or maxCount < 1")
-
-    return sum
+    return sb.toString()
 }

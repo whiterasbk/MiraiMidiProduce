@@ -1,32 +1,49 @@
 package bot.music.whiter
 
-import org.audiveris.proxymusic.ObjectFactory
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.request.*
+import whiter.music.mider.code.produceCore
+import whiter.music.mider.dsl.Dsl2MusicXml
+import whiter.music.mider.dsl.playDslInstance
+import java.io.File
+import java.io.InputStream
 
-fun main(args: Array<String>) {
+
+suspend fun main(args: Array<String>) {
+
+//        val k =
+//        val kj = k.find("20220814162448_9636.wav\">wav</a>, <a target=\"_top\" href=\"./")
+//        println(kj?.value)
+
+//    val k = Regex("[\\w'\"\\-+#@:,.\\[\\]()]+\\.wav")
+//        .find("20220814200451_7248.wav\">wav</a>, <a target=\"_top\" href=\"./")?.value
+//    println(k)
 
 
-    val factory = ObjectFactory()
-    val scorePartwise = factory.createScorePartwise()
-    val work = factory.createWork()
+    val pc = produceCore(">g;Bmin;sing>c[两]d[只]e[老]c[虎]")
+    val dsl2MusicXml = Dsl2MusicXml(pc.miderDSL)
+    println(dsl2MusicXml)
+    playDslInstance(miderDSL = pc.miderDSL)
 
-    scorePartwise.work = work
-    work.workTitle = "Title for the work"
-    work.workNumber = "Number for the work"
+//    val singer = selectSinger("" to "")
+//    val sinsyCfg = SinsyConfig(singer.second, singer.first)
+//    val after = sinsy("D:\\ProjectFiles\\idea\\mider\\src\\test\\resources\\3format.xml", sinsyCfg)
+//    File("atmp.wav").writeBytes(after.readAllBytes())
 
-    // Work::Opus
+//        val client = HttpClient(OkHttp)
+//        val k = client.get<InputStream>("http://sinsy.sp.nitech.ac.jp/temp/20220814162448_9636.wav")
+//        File("tmp.wav").writeBytes(k.readAllBytes())
 
-    // Work::Opus
-    val opus = factory.createOpus()
-    work.opus = opus
-    opus.setHref("Href to opus")
-    opus.setType("simple")
-    opus.setRole("Role of opus") // Some text
+//        sinsy("")
+//
+//        val k = produceCore("""
+//            >240b;Bmin;i=musicbox>faaabDba | b-D-~~Db-a-a++ | F~~~ GFED | E-~~~EE-F-E++ | FFF-F F-GFED | bDD b-a- a++ | FFF-F F-GFED | a-~~~EC D++-+
+//            >240b;Bmin;i=oboe>faaabDba | b-D-~~Db-a-a++ | F~~~ GFED | E-~~~EE-F-E++ | FFF-F F-GFED | bDD b-a- a++ | FFF-F F-GFED | a-~~~EC D++-+
+//        """.trimIndent())
+//
+//        playDslInstance(miderDSL = k.miderDSL)
 
-    opus.setTitle("Title of opus") // Some text
-
-    opus.setShow("new") // new, replace, embed, other, none
-
-    opus.setActuate("onLoad") // onRequest, onLoad, other, none
 
 //       play {
 //              O*15; A+D

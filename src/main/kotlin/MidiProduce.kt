@@ -1,7 +1,13 @@
 package bot.music.whiter
 
 import io.github.mzdluo123.silk4j.AudioUtils
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.request.*
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.forEach
 import kotlinx.coroutines.launch
 import net.mamoe.mirai.console.data.AutoSavePluginConfig
 import net.mamoe.mirai.console.data.ValueDescription
@@ -9,17 +15,23 @@ import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
 import net.mamoe.mirai.console.plugin.jvm.KotlinPlugin
 import net.mamoe.mirai.contact.FileSupported
+import net.mamoe.mirai.contact.file.AbsoluteFile
 import net.mamoe.mirai.event.events.BotEvent
 import net.mamoe.mirai.event.events.FriendMessageEvent
 import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.event.globalEventChannel
+import net.mamoe.mirai.message.data.FileMessage
 import net.mamoe.mirai.message.data.Message
 import net.mamoe.mirai.message.data.buildMessageChain
+import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
-import whiter.music.mider.dsl.MiderDSL
-import whiter.music.mider.dsl.fromDsl
+import whiter.music.mider.cast
+import whiter.music.mider.code.*
+import whiter.music.mider.dsl.Dsl2MusicXml
+import whiter.music.mider.dsl.fromDslInstance
+import java.io.BufferedInputStream
 import java.io.FileFilter
 import java.io.InputStream
 import java.net.URL
@@ -107,7 +119,7 @@ object MidiProduce : KotlinPlugin(
             tmpDir.listFiles(FileFilter {
                 when(it.extension) {
                     "so", "dll", "lib", "mp3", "silk", "wave", "wav", "amr",
-                    "mid", "midi", "mscz", "png", "pdf", "pcm"
+                    "mid", "midi", "mscz", "png", "pdf", "pcm", "xml"
                         -> true
                     else -> false
                 }
@@ -172,16 +184,25 @@ object MidiProduce : KotlinPlugin(
     }
 
     private suspend fun MessageEvent.generate() {
+        val underMsg = if (this is GroupMessageEvent && FileMessage in message) {
+            val fileMessage = message.find { it is FileMessage }.cast<FileMessage>()
+            if (fileMessage.name.endsWith("." + Config.miderCodeFormatName)) {
+                val filter = group.files.root.files().filter { it.id == fileMessage.id }
+                val url = filter.first().getUrl()
+                val client = HttpClient(OkHttp)
+                client.get(url ?: throw Exception("current file: ${fileMessage.name} does not exist"))
+            } else message.content
+        } else message.content
 
-        val startRegex = Regex(">(g|f|\\d+b)((;[-+b#]?[A-G](min|maj|major|minor)?)|(;\\d)|(;img)|(;pdf)|(;mscz)|(;midi)|(;i=[a-zA-Z-]+)|(;\\d/\\d))*>")
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
-        matchRegex(cmdRegex) { msg ->
+        underMsg.matchRegex(cmdRegex) { msg ->
 
-            var isRenderingNotation = false
-            var isUploadMidi = false
+            var isRenderingNotation: Boolean
+            var isUploadMidi: Boolean
             var notationType: NotationType? = null
 
+            // TODO (notationType == NotationType.PNGS || notationType == null) 此处必为真
             if (Config.cache && msg in cache && (notationType == NotationType.PNGS || notationType == null)) {
                 cache[msg]?.let {
                     ifDebug("send from cache")
@@ -192,154 +213,73 @@ object MidiProduce : KotlinPlugin(
                 time {
                     logger.info("sounds begin")
 
-                    val noteLists = msg.split(startRegex).toMutableList()
-                    noteLists.removeFirst()
-                    val configParts = startRegex.findAll(msg).map { it.value.replace(">", "") }.toList()
-
-                    val dslBlock: MiderDSL.() -> Unit = {
-
-                        val macroConfig = MacroConfiguration {
-
-                            recursionLimit(Config.recursionLimit)
-
-                            loggerInfo { logger.info(it) }
-                            loggerError {
-                                if (Config.macroUseStrictMode) throw it else logger.error(it)
-                            }
-
-                            fetchMethod {
-                                if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
-                                    URL(it).openStream().reader().readText()
-                                else
-                                    resolveDataFile(it.replace("file:", "")).readText()
-                            }
+                    val macroConfig = MacroConfigurationBuilder()
+                        .recursionLimit(Config.recursionLimit)
+                        .loggerError { logger.info(it) }
+                        .loggerError { if (Config.macroUseStrictMode) throw it else this@MidiProduce.logger.error(it) }
+                        .fetchMethod {
+                            if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
+                                URL(it).openStream().reader().readText()
+                            else
+                                resolveDataFile(it.replace("file:", "")).readText()
                         }
-                        val changeBpm = { tempo: Int -> bpm = tempo }
-                        val changeOuterProgram = { ins: String -> program = MiderDSL.instrument.valueOf(ins) }
-                        val changeTimeSignature = { pair: Pair<Int, Int> -> timeSignature = pair }
-                        // todo 怪, 应该每条轨道都能设置才对
 
-                        noteLists.forEachIndexed { index, content ->
+                    // TODO MiderCodeParserConfiguration.Buider该改改，允许直接 setMacroConfiguration
+                    val produceCoreConfiguration = MiderCodeParserConfiguration()
 
-                            track {
-                                var mode = ""
-                                var defaultPitch = 4
-                                defaultNoteDuration = 1
+                    produceCoreConfiguration.macroConfiguration = macroConfig.build()
 
-                                configParts[index].split(";").forEach {
-                                    when (it) {
+                    val produceCoreResult = produceCore(msg.toPinyin(), produceCoreConfiguration)
 
-                                        "g" -> defaultPitch = 4 // 这样应该能提升性能吧(
-
-                                        "f" -> defaultPitch = 3
-
-                                        "midi" -> isUploadMidi = true
-
-                                        "img" -> {
-                                            isRenderingNotation = true
-                                            notationType = NotationType.PNGS
-                                        }
-
-                                        "pdf" -> {
-                                            isRenderingNotation = true
-                                            notationType = NotationType.PDF
-                                        }
-
-                                        "mscz" -> {
-                                            isRenderingNotation = true
-                                            notationType = NotationType.MSCZ
-                                        }
-
-                                        else -> {
-                                            if (it.matches(Regex("\\d+b"))) {
-                                                changeBpm(it.replace("b", "").toInt())
-                                            } else if (it.matches(Regex("[-+b#]?[A-G](min|maj|major|minor)?"))) {
-                                                mode = it
-                                            } else if (it.matches(Regex("\\d"))) {
-                                                defaultPitch = it.toInt()
-                                            } else if (it.matches(Regex("\\d/\\d"))) {
-                                                val ts = it.split("/")
-                                                changeTimeSignature(ts[0].toInt() to ts[1].toInt())
-                                            } else if (it.matches(Regex("i=[a-zA-Z-]+"))) {
-                                                // 两个都设置下 (
-                                                program = MiderDSL.instrument.valueOf(it.replace("i=", ""))
-                                                // todo fix
-                                                if (!Config.formatMode.contains("muse-score")) {
-                                                    changeOuterProgram(it.replace("i=", ""))
-                                                    ifDebug("set outer program to $program")
-                                                }
-                                                ifDebug("set program to $program")
-                                            }
-                                        }
-                                    }
-                                }
-
-                                val sequence = macro(content, macroConfig)
-
-                                val isStave =
-                                    Regex("[c-gaA-G]").find(sequence) != null || Regex("(\\s*b\\s*)+").matches(sequence)
-
-                                val rendered = toInMusicScoreList(
-                                    sequence.let {
-                                        if (isStave && Config.isBlankReplaceWith0) it else
-                                            it.trim().replace(Regex("( {2}| \\| )"), "0")
-                                    },
-                                    isStave = isStave,
-                                    pitch = defaultPitch, useMacro = false
-                                )
-
-                                ifUseMode(mode) {
-                                    val stander = toMiderStanderNoteString(rendered)
-                                    if (stander.isNotBlank()) !stander
-                                }
-                                ifDebug { logger.info("track: ${index + 1}"); debug() }
-                            }
-                        }
-                    }
-
-                    val midiStream: InputStream = fromDsl(dslBlock).inStream()
+                    /*
+                     produceCoreResult的内容:
+                     - 若干控制类变量的新值
+                     - 得到 miderDSL instance
+                     */
+                    isRenderingNotation = produceCoreResult.isRenderingNotation
+                    isUploadMidi = produceCoreResult.isUploadMidi
+                    notationType = produceCoreResult.notationType
+                    val midiStream: InputStream = fromDslInstance(produceCoreResult.miderDSL).inStream()
 
                     if (isRenderingNotation) {
                         // 渲染 乐谱
-                        if (isRenderingNotation) {
-                            val midi = AudioUtilsGetTempFile("mid")
-                            midi.writeBytes(midiStream.readAllBytes())
+                        val midi = AudioUtilsGetTempFile("mid")
+                        midi.writeBytes(midiStream.readAllBytes())
 
-                            when (notationType) {
-                                NotationType.PNGS -> {
-                                    val chain = buildMessageChain {
-                                        convert2PNGS(midi).forEach { png ->
-                                            png.toExternalResource().use {
-                                                val img = subject.uploadImage(it)
-                                                subject.sendMessage(img)
-                                                delay(50)
-                                                +img
-                                            }
+                        when (notationType) {
+                            NotationType.PNGS -> {
+                                val chain = buildMessageChain {
+                                    convert2PNGS(midi).forEach { png ->
+                                        png.toExternalResource().use {
+                                            val img = subject.uploadImage(it)
+                                            subject.sendMessage(img)
+                                            delay(50)
+                                            +img
                                         }
                                     }
-                                    if (Config.cache) cache[msg] = chain
                                 }
-
-                                NotationType.PDF -> {
-                                    if (subject is FileSupported) {
-                                        val pdf = convert2PDF(midi)
-                                        pdf.toExternalResource().use {
-                                            (subject as FileSupported).files.uploadNewFile(pdf.name, it)
-                                        }
-                                    } else subject.sendMessage("打咩")
-                                }
-
-                                NotationType.MSCZ -> {
-                                    if (subject is FileSupported) {
-                                        val mscz = convert2MSCZ(midi)
-                                        mscz.toExternalResource().use {
-                                            (subject as FileSupported).files.uploadNewFile(mscz.name, it)
-                                        }
-                                    } else subject.sendMessage("打咩")
-                                }
-
-                                else -> throw Exception("plz provide the output format")
+                                if (Config.cache) cache[msg] = chain
                             }
+
+                            NotationType.PDF -> {
+                                if (subject is FileSupported) {
+                                    val pdf = convert2PDF(midi)
+                                    pdf.toExternalResource().use {
+                                        (subject as FileSupported).files.uploadNewFile(pdf.name, it)
+                                    }
+                                } else subject.sendMessage("打咩")
+                            }
+
+                            NotationType.MSCZ -> {
+                                if (subject is FileSupported) {
+                                    val mscz = convert2MSCZ(midi)
+                                    mscz.toExternalResource().use {
+                                        (subject as FileSupported).files.uploadNewFile(mscz.name, it)
+                                    }
+                                } else subject.sendMessage("打咩")
+                            }
+
+                            else -> throw Exception("plz provide the output format")
                         }
                     } else if (isUploadMidi && subject is FileSupported) {
                         // 上传 midi
@@ -350,10 +290,20 @@ object MidiProduce : KotlinPlugin(
                             )
                         }
                     } else {
+                        val stream = if (produceCoreResult.isSing) {
+                            val xmlFile = AudioUtilsGetTempFile("xml")
+                            val dsl2MusicXml = Dsl2MusicXml(produceCoreResult.miderDSL)
+                            dsl2MusicXml.save(xmlFile)
 
-                        val stream = generateAudioStreamByFormatMode(midiStream)
+                            val singer = selectSinger(produceCoreResult.singSong!!.first to produceCoreResult.singSong!!.second)
+                            val sinsyCfg = SinsyConfig(singer.second, singer.first)
+                            val after = sinsy(xmlFile.absolutePath, sinsyCfg)
+                            generateAudioStreamByFormatModeFromWav(BufferedInputStream(after))
+                        } else {
+                            generateAudioStreamByFormatMode(midiStream)
+                        }
+
                         when (this) {
-
                             is GroupMessageEvent -> {
                                 val size = stream.available()
                                 if (size > 1024 * 1024) logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
@@ -392,21 +342,16 @@ object MidiProduce : KotlinPlugin(
             }
         }
     }
-
-    private fun MiderDSL.ifUseMode(mode: String, block: MiderDSL.()-> Unit) {
-        if (mode.isNotBlank()) {
-            useMode(mode) {
-                block()
-            }
-        } else block()
-    }
-}
-
-enum class NotationType {
-    PNGS, MSCZ, PDF
 }
 
 object Config : AutoSavePluginConfig("config") {
+
+    val miderCodeFormatName by value("midercode")
+    val sinsySynAlpha by value(0.55f)
+    val sinsyF0shift by value(0)
+    val sinsyVibpower by value(1)
+    @ValueDescription("sinsy 网址")
+    val sinsyLink by value("http://sinsy.sp.nitech.ac.jp")
 
     @ValueDescription("2000year")
     val selfMockeryTime by value(7 * 1000L)
