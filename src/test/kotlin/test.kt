@@ -2,7 +2,6 @@ package bot.music.whiter
 
 import org.audiveris.proxymusic.ObjectFactory
 
-
 fun main(args: Array<String>) {
 
 
