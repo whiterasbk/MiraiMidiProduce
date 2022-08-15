@@ -21,10 +21,9 @@ suspend fun main(args: Array<String>) {
 //    println(k)
 
 
-    val pc = produceCore(">g;Bmin;sing>c[两]d[只]e[老]c[虎]")
-    val dsl2MusicXml = Dsl2MusicXml(pc.miderDSL)
-    println(dsl2MusicXml)
-    playDslInstance(miderDSL = pc.miderDSL)
+    playMiderCodeFile("C:\\Users\\whiter\\Desktop\\what.midercode")
+
+
 
 //    val singer = selectSinger("" to "")
 //    val sinsyCfg = SinsyConfig(singer.second, singer.first)

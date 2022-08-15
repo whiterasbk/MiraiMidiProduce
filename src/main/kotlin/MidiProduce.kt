@@ -31,6 +31,7 @@ import whiter.music.mider.cast
 import whiter.music.mider.code.*
 import whiter.music.mider.dsl.Dsl2MusicXml
 import whiter.music.mider.dsl.fromDslInstance
+import whiter.music.mider.xml.LyricInception
 import java.io.BufferedInputStream
 import java.io.FileFilter
 import java.io.InputStream
@@ -45,7 +46,6 @@ object MidiProduce : KotlinPlugin(
         author("whiterasbk")
     }
 ) {
-
     // todo 1. 出场自带 bgm ( 频率
     // todo 2. 相对音准小测试
     // todo 3. 隔群发送语音, 寻觅知音 (
@@ -64,6 +64,8 @@ object MidiProduce : KotlinPlugin(
         Config.reload()
 
         initTmpAndFormatTransfer()
+
+        LyricInception.replace = { it.toPinyin() }
 
         val process: suspend MessageEvent.() -> Unit = {
             var finishFlag = false
@@ -187,8 +189,7 @@ object MidiProduce : KotlinPlugin(
         val underMsg = if (this is GroupMessageEvent && FileMessage in message) {
             val fileMessage = message.find { it is FileMessage }.cast<FileMessage>()
             if (fileMessage.name.endsWith("." + Config.miderCodeFormatName)) {
-                val filter = group.files.root.files().filter { it.id == fileMessage.id }
-                val url = filter.first().getUrl()
+                val url = fileMessage.toAbsoluteFile(group)?.getUrl()
                 val client = HttpClient(OkHttp)
                 client.get(url ?: throw Exception("current file: ${fileMessage.name} does not exist"))
             } else message.content
@@ -229,7 +230,7 @@ object MidiProduce : KotlinPlugin(
 
                     produceCoreConfiguration.macroConfiguration = macroConfig.build()
 
-                    val produceCoreResult = produceCore(msg.toPinyin(), produceCoreConfiguration)
+                    val produceCoreResult = produceCore(msg, produceCoreConfiguration)
 
                     /*
                      produceCoreResult的内容:
@@ -356,7 +357,7 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("2000year")
     val selfMockeryTime by value(7 * 1000L)
     @ValueDescription("is2000year(")
-    val selfMockery by value(true)
+    val selfMockery by value(false)
 
     @ValueDescription("命令执行超时时间")
     val commandTimeout by value(60 * 1000L)

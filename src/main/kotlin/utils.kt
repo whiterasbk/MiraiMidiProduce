@@ -16,8 +16,10 @@ import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
 import org.apache.commons.exec.ExecuteWatchdog
 import org.apache.commons.exec.PumpStreamHandler
+import whiter.music.mider.code.produceCore
 import whiter.music.mider.dsl.MiderDSL
 import whiter.music.mider.dsl.fromDsl
+import whiter.music.mider.dsl.playDslInstance
 import java.io.*
 import java.nio.charset.Charset
 import javax.sound.sampled.AudioInputStream
@@ -328,9 +330,13 @@ fun String.toPinyin(): String {
             val s = PinyinHelper.toHanyuPinyinStringArray(this[i], pyf)
             if (s != null)
                 sb.append(s[0])
-
         } else sb.append(this[i])
     }
 
     return sb.toString()
+}
+
+fun playMiderCodeFile(path: String) {
+    val r = produceCore(File(path).readText())
+    playDslInstance(miderDSL = r.miderDSL)
 }
