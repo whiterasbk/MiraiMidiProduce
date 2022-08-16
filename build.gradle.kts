@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "bot.music.whiter"
-version = "0.1.6"
+version = "0.1.7"
 
 repositories {
     maven("https://maven.aliyun.com/repository/central")

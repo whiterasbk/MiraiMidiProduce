@@ -41,7 +41,7 @@ object MidiProduce : KotlinPlugin(
     JvmPluginDescription(
         id = "bot.music.whiter.MidiProduce",
         name = "MidiProduce",
-        version = "0.1.6",
+        version = "0.1.7",
     ) {
         author("whiterasbk")
     }
