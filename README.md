@@ -13,33 +13,210 @@
 2. 丢进去
 3. 关闭文件夹
 
-## 使用方法
-
-```shell
-在 mider code 里, 称形如 >g>sequence 为一条轨道, 而形如 >!cmd> 为一条内建指令
-# 轨道格式
->bpm[;mode][;pitch][;i=instrument][;timeSignature][;midi|img|pdf|mscz]>音名序列 | 唱名序列
-bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g(pitch=4&bpm=80) 或者 f(pitch=3&bpm=80) 代替
-mode: 调式(若为小调则为同名小调), 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
-pitch: 音域(音高), 可选, 默认为 4
-i=instrument: 选择乐器, 可选
-timeSignature: 拍号, 可选
-midi: 是否仅上传 midi 文件, 可选
-img: 是否仅上传 png 格式的乐谱
-pdf: 是否仅上传 pdf 文件, 可选
-mscz: 是否仅上传 mscz 文件, 可选
-音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
-# 获取帮助
->!help>
-# 设置 formatMode
->!formatMode=mode>
-# 清理缓存
->!clear-cache>
-```
-**注: 涉及乐谱生成需要先安装 Muse Score** 见[转换乐谱](#转换乐谱)
-
 ## 效果
 ![你看到了一张图](https://mirai.mamoe.net/assets/uploads/files/1653475903211-d7c4283d-8163-4079-8c60-11d26468d8b1-image.png)
+[BV1gS4y1W7cj](https://www.bilibili.com/video/BV1gS4y1W7cj)
+
+## 使用方法
+
+### 普通指令(轨道语法): `>params>sequence`
+在 mider code 中, `>params>sequence` 可以称作一条轨道
+#### params
+参数之间用`;`号分隔
+支持的参数 `params` 详细说明如下:
+
+1. `g|f|数字+b` 设置 bpm 同时确定音域, f 表示低音 (pitch=3&bpm=80), g 表示高音 (pitch=4&bpm=80) **必选参数不可省略**. 示例:
+```shell
+>g>
+>f>
+>120b>
+```
+2. `[数字+x]` 设置倍速, 支持整数和小数
+3. `[/+数字]` 以设定值为音符默认时值
+4. `[数字+%]` 设置轨道音量
+5. `[数字+dB]` 以设定值为音符默认音量, 范围 0~127
+6. `[调号]` 默认当前音符序列为 C大调 并将其转调到指定调号. 调号由两部分组成: 一部分是调的名字, 具体参考乐理, 需要大写, 另一部分是调的模式, major 和 minor 分别可以简写成 maj 和 min. 若为 minor 则为同名小调. 在一般情况下 major 可以省略. 示例:
+```text
+>g;Cmin>
+>g;#Fmajor>
+>g;bD>
+```
+7. `[数字]` 设置默认音高
+8. `[数字/数字]` 设置拍号
+9. `[i=instrument]` 设置乐器, `instrument` 见 [MidiInstrument.kt](https://github.com/whiterasbk/mider/blob/dev/src/main/kotlin/whiter/music/mider/MidiInstrument.kt)
+10. `[midi|img|pdf|mscz]` 上传乐谱文件, 如是 img 则会上传图片 **注: 涉及乐谱生成需要先安装 Muse Score** 见 [转换乐谱](#转换乐谱)
+11. `[sing:area:singerId]` 调用 [sinsy](https://www.sinsy.jp/) 接口生成音频. 当  area 和 singerId 都提供时, singerId的格式为 [f|m]+数字 表示选取的是该地区的 第 singerId 位 女性|男性 歌手. 当仅提供 singerId 时, 其格式为 数字, 表示选取 表示符 为 singerId 的歌手. 当两者都不提供时, 相当于选取中国大陆地区的第一位女歌手 香玲 
+
+#### sequence
+sequence 可以是音名序列或是唱名序列, 音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
+##### 音符
+音名序列下, 使用 cdefgabCDEFGAB 表示, 其中小写写表示 pitch=4的音符, 大写表示比小写高一个八度的音符 
+
+唱名序列下, 使用 1234567 表示
+
+创建的音符默认时值是四分音符, 要修改其时值, 可以使用 `+` 来拉长音符时值, `-` 以缩短时值
+例如以下示例就创建了一个八分音符, 十六分音符和一个二分音符
+```shell
+>g>c- #八分音符
+>g>c-- #十六分音符
+>g>c+ #二分音符
+```
+要为音符添加附点, 请在该音符后加上 `.`, 而特殊时值例如三连音可以使用 `/`
+```shell
+>g>a. c/3 c/3 c/3
+```
+`#` 和 `$` 分别可以让音符升高或降低半音, `&` 表示给音符添加一个还原符号
+```text
+>g>$e &f #c
+```
+而在唱名序列中, `$` 可以用 `b` 代替
+```shell
+>g>12b3
+```
+在音符后加上数字可以改变其八度
+```shell
+>g>c3 e5
+```
+而更推荐的做法是使用 `↑` 和 `↓` 在 pitch=4 的基础上进行八度的增减. 而在唱名序列中, `↑` 和 `↓` 可以用 `i` 和 `!` 代替
+```shell
+>g>c↓ e↑ g↑↑
+>g>1↓ 3↑ 5↑↑
+>g>1! 3i 5ii
+```
+`%` 可以设置单个音符的力度, 范围是 0~127, 未设置的情况下默认力度为 100
+```shell
+>g>c%60
+```
+使用 `o` 或 `O` 创建四分休止符或二分休止符, 休止符同样可以使用 `+`, `-` `.` 甚至 `/` 来修改时值
+```shell
+>g>o-O+O.
+```
+`[` 配合 `]` 可以给单个音符加上歌词
+```shell
+>g>1[打]2[倒]3[列]1[强]
+```
+要重复单个音符多次可以使用 `*`
+```shell
+>g>c*100
+```
+`~` 可以克隆前一个音符, ~~适合偷懒~~
+```shell
+>g>c~~~~~~
+```
+`^` 和 `v` 可以将上一个音符克隆并升高或降低一个音, 升高或降低的音满足在 C大调 下的音程关系. 类似的用法还有 `m-w`, `n-u`, `q-p`, `i-!`, `s-z` 升高或降低度数在 ^-v 的基础上逐步递增或递减
+```shell
+>g>c^^^ # 等价于 cdef
+```
+
+##### 和弦
+使用 `:` 可以将多个音符组成一个和弦, 第一个音的时值将会是和弦的时值
+```shell
+>g>c:e:g
+```
+`^` 和 `v` 等 也是可用的
+```shell
+>g>c:m:m # 等价于 c:e:g
+```
+但是 使用 `^` 和 `v` 等 时要注意, `#` 和 `$(b)` 将不起作用
+```shell
+>g>c:m:#m  #号 将不起作用
+```
+可以使用 `"` 和 `'` 代替 `#` 和 `$(b)` ~~问就是起名废~~
+```shell
+>g>c:m:m'
+```
+`↟` 和 `↡` 可以创建向上或向下琶音 ~~符号越来越奇怪了啊喂~~
+```shell
+>g>c:e:g↟
+```
+
+##### 倚音
+`;` 连接两个音符组成一个短前倚音, 倚音时值为第二个音符的时值
+```shell
+>g>c;e
+```
+若要构建后倚音只需要在第二个音符后加上 `t`
+```shell
+>g>c;et
+```
+
+##### 滑音/刮奏(Glissando)
+使用 `=`, 可以连接多个音符, 时值为所有组成音符的时值. 默认只刮白键
+```shell
+>g>c=b
+```
+若要白键和黑键一起刮, 在后面加上 `t`
+```shell
+>g>c=bt
+```
+
+##### 宏
+mider code 中宏的本质是对某段序列或其中的字母或数字的重复或简单修改替换. 
+
+碍于技术原因, 目前宏均不可嵌套使用
+
+宏的定义始于 `(` 终于 `)`, `()` 内便是宏的作用域, 以下是支持的宏: 
+
+定义一个音符序列: `(def symbol=note sequence)`
+```shell
+>g>aaa(def na=cde)aaa
+>g>aaaaaa # 实际输入的序列
+```
+定义一个音符序列, 并在此处展开: `(def symbol:note sequence)` 
+```shell
+>g>aaa(def na=cde)aaa
+>g>aaacdeaaa # 实际输入的序列
+```
+展开 symbol 对应音符序列: `(=symbol)`
+```shell
+>g>(def a=cde)a(=a)
+>g>acde # 实际输入的序列
+```
+读取 path 代表的资源并展开, 如果是文件默认目录是插件的数据文件夹: `(include path)` 
+```shell
+>g>(include ./seq.midercode)
+```
+将音符序列重复 times 次: `(repeat time: note sequence)`
+```shell
+>g>c(repeat 3: oa)
+>g>coaoaoa # 实际输入的序列
+```
+如果定义了 symbol 则展开: `(ifdef symbol: note sequence)`
+
+如果未定义 symbol 则展开: `(if!def symbol: note sequence)`
+```shell
+>g>(def s=abc) (ifdef s: cfg) (if!def s: bbc) 
+>g>cfg #实际输入的序列
+```
+定义宏(类似函数, 但实际表现得更蠢一些): `(macro name param1[,params]: note sequence @[param1])`
+
+展开宏: (!name arg1[,arg2])
+```shell
+>g>(m p1: a@[p1]dc@[p1]) (!m b)
+>g>abdcb #实际输入的序列
+```
+调整 note sequence 的力度, 仅适用于长音名序列: `(velocity linear from~to: note sequence)`
+```shell
+>g>(velocity linear 50~80: cde)
+>g>c%50 d%60 e%70
+```
+
+### 环境指令: `>!config>`
+供 MidiProduce 内部调用
+获取帮助
+```shell
+>!help>
+```
+设置 formatMode
+```shell
+>!formatMode=mode>
+```
+清理缓存
+```shell
+>!clear-cache>
+```
+
+
 
 ## todo list
 
@@ -47,54 +224,6 @@ mscz: 是否仅上传 mscz 文件, 可选
 - [x] 渲染乐谱
 - [ ] 识别乐谱并转化为音符
 
-## 关于音符序列
-
-```
-# 公用规则 (如无特殊说明均使用在唱名或音名后, 并可叠加使用)
- # : 升一个半音, 使用在音名或唱名前
- $ : 降一个半音, 使用在音名或唱名前
- + : 时值变为原来的两倍
- - : 时值变为原来的一半
- . : 时值变为原来的一点五倍
- : : 两个以上音符组成一个和弦
- ~ : 克隆上一个音符
- ^ : 克隆上一个音符, 并升高 1 度
- v : 克隆上一个音符, 并降低 1 度
- ↑ : 升高一个八度
- ↓ : 降低一个八度
- % : 调整力度, 后接最多三位数字
- & : 还原符号
-类似的用法还有 m-w, n-u, q-p, i-!, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
-
-# 如果是音名序列则以下规则生效
-a~g: A4~G4
-A~G: A5~G5
- O : 二分休止符 
- o : 四分休止符 
-0-9: 手动修改音域
-
-# 如果是唱名序列则以下规则生效
-1~7: C4~B4
- 0 : 四分休止符
- i : 升高一个八度
- ! : 降低一个八度
- b : 降低一个半音, 使用在唱名前
- * : 后接一个一位数字表示重复次数
- 
-# 宏
-目前可用的宏有
-1. (def symbol=note sequence) 定义一个音符序列
-2. (def symbol:note sequence) 定义一个音符序列, 并在此处展开
-3. (=symbol) 展开 symbol 对应音符序列
-4. (include path) 读取 path 代表的资源并展开, 如果是文件默认目录是插件的数据文件夹
-5. (repeat time: note sequence) 将音符序列重复 times 次
-6. (ifdef symbol: note sequence) 如果定义了 symbol 则展开
-7. (if!def symbol: note sequence) 如果未定义 symbol 则展开
-8. (macro name param1[,params]: note sequence @[param1]) 定义宏
-9. (!name arg1[,arg2]) 展开宏
-10. (velocity linear from~to: note sequence) 调整 note sequence 的力度, 仅适用于长音名序列
-目前宏均不可嵌套使用
-```
 
 ## 示例
 
@@ -137,27 +266,6 @@ A~G: A5~G5
 
 若想分享自己编写的旋律欢迎提 `pr` 到这个文件夹, **建议使用英文名称**, 后续可能会考虑打包进发布版本供 `include` 使用
 
-## 和弦
-
-轨道内可以使用`:`构建 
-```
->g>c:e:g 构建大三和弦
-```
-也可以写成下面的等价形式
-```
->g>c:m:m (m 是将前一个音符克隆并升高两度 
-```
-同时使用`:`和 功能类似 `m`, `^`等的字符 则 `#` 和 `$` 将不起作用, 可以使用 `#` 和 `$` 的等价后缀修改符 `"` 和 `'`, ~~问就是起名废~~
-```
->g>c:m:#m (# 号将不起作用
->g>c:m:m" (这种形式能正常解析
-```
-同样支持多轨
-```
->g>c d e (g 的 pitch 默认为 4
->f>a b c (f 的 pitch 默认为 3, 可以当作低音轨道
-```
-
 ## 转换乐谱
 **此功能需要首先安装 [Muse Score](https://musescore.org/zh-hans)**
 
@@ -176,42 +284,6 @@ A~G: A5~G5
 ![44f9b717-4c28-453e-b99c-2fc8567828c8-image.png](https://mirai.mamoe.net/assets/uploads/files/1654083503837-44f9b717-4c28-453e-b99c-2fc8567828c8-image.png)
 
 若想修改 `Muse Score` 命令格式和参数, 请参考 [官方使用手册](https://musescore.org/zh-hans/handbook)
-
-## 参考配置
-```yaml
-# ffmpeg 转换命令 (不使用 ffmpeg 也可以, 只要能完成 wav 到 mp3 的转换就行 , {{input}} 和 {{output}} 由 插件提供不需要修改
-ffmpegConvertCommand: 'ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}'
-# timidity 转换命令 (不使用 timidity 也可以, 只要能完成 mid 到 wav 的转换就行
-timidityConvertCommand: 'timidity {{input}} -Ow -o {{output}}'
-# muse score 从 .mid 转换到 .mscz
-mscoreConvertMidi2MSCZCommand: 'MuseScore3 {{input}} -o {{output}}'
-# muse score 从 .mid 转换到 .pdf
-mscoreConvertMSCZ2PDFCommand: 'MuseScore3 {{input}} -o {{output}}'
-# muse score 从 .mid 转换到 .png 序列
-mscoreConvertMSCZ2PNGSCommand: 'MuseScore3 {{input}} -o {{output}}'
-# silk 比特率(吧
-silkBitsRate: 24000
-# 生成模式 可选的有:
-# internal->java-lame (默认)
-# internal->java-lame->silk4j
-# timidity->ffmpeg
-# timidity->ffmpeg->silk4j
-# timidity->java-lame
-# timidity->java-lame->silk4j
-formatMode: 'internal->java-lame'
-# 宏是否启用严格模式
-macroUseStrictMode: true
-# 是否启用调试
-debug: false
-# 是否启用缓存
-cache: true
-# 是否启用空格替换
-isBlankReplaceWith0: true
-# 量化深度 理论上越大生成 mp3 的质量越好, java-lame 给出的值是 256
-quality: 64
-# 超过这个大小则自动改为文件上传
-uploadSize: 1153433
-```
 
 ## 注意
  - 唱名序列中 `\s{2}` 和 `\s\|\s` 会被自动替换成 `0` 也就是休止符, 可以在配置中修改这部分行为

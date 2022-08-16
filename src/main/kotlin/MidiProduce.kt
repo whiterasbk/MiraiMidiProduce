@@ -186,9 +186,11 @@ object MidiProduce : KotlinPlugin(
     }
 
     private suspend fun MessageEvent.generate() {
+        var miderCodeFileName = ""
         val underMsg = if (this is GroupMessageEvent && FileMessage in message) {
             val fileMessage = message.find { it is FileMessage }.cast<FileMessage>()
             if (fileMessage.name.endsWith("." + Config.miderCodeFormatName)) {
+                miderCodeFileName = fileMessage.name.split(".")[0] + "-"
                 val url = fileMessage.toAbsoluteFile(group)?.getUrl()
                 val client = HttpClient(OkHttp)
                 client.get(url ?: throw Exception("current file: ${fileMessage.name} does not exist"))
@@ -229,6 +231,7 @@ object MidiProduce : KotlinPlugin(
                     val produceCoreConfiguration = MiderCodeParserConfiguration()
 
                     produceCoreConfiguration.macroConfiguration = macroConfig.build()
+                    produceCoreConfiguration.isBlankReplaceWith0 = Config.isBlankReplaceWith0
 
                     val produceCoreResult = produceCore(msg, produceCoreConfiguration)
 
@@ -311,7 +314,7 @@ object MidiProduce : KotlinPlugin(
                                 if (size > Config.uploadSize) {
                                     stream.toExternalResource().use {
                                         group.files.uploadNewFile(
-                                            "generate-${System.currentTimeMillis()}.mp3",
+                                            miderCodeFileName + "generate-${System.currentTimeMillis()}.mp3",
                                             it
                                         )
                                     }
@@ -346,14 +349,16 @@ object MidiProduce : KotlinPlugin(
 }
 
 object Config : AutoSavePluginConfig("config") {
-
-    val miderCodeFormatName by value("midercode")
+    @ValueDescription("sinsy 生成语音的声质, -0.8〜0.8")
     val sinsySynAlpha by value(0.55f)
+    @ValueDescription("sinsy 颤音强度, 0.0〜2.0")
     val sinsyF0shift by value(0)
+    @ValueDescription("sinsy 俯仰变速, -24〜24")
     val sinsyVibpower by value(1)
-    @ValueDescription("sinsy 网址")
+    @ValueDescription("sinsy 接口")
     val sinsyLink by value("http://sinsy.sp.nitech.ac.jp")
-
+    @ValueDescription("上传文件的触发格式")
+    val miderCodeFormatName by value("midercode")
     @ValueDescription("2000year")
     val selfMockeryTime by value(7 * 1000L)
     @ValueDescription("is2000year(")
@@ -407,77 +412,5 @@ object Config : AutoSavePluginConfig("config") {
     @ValueDescription("超过这个大小则自动改为文件上传")
     val uploadSize by value(1153433L)
     @ValueDescription("帮助信息 (更新版本时记得要删掉这一行)")
-    val help by value("""
-在 mider code 里, 称形如 >g>sequence 为一条轨道, 而形如 >!cmd> 为一条内建指令
-# 轨道格式
->bpm[;mode][;pitch][;i=instrument][;timeSignature][;midi|img|pdf|mscz]>音名序列 | 唱名序列
-bpm: 速度, 必选, 格式是: 数字 + b, 如 120b, 默认可以用 g(pitch=4&bpm=80) 或者 f(pitch=3&bpm=80) 代替
-mode: 调式(若为小调则为同名小调), 可选, 格式是 b/#/-/+ 调式名, 如 Cminor, -Emaj, bC
-pitch: 音域(音高), 可选, 默认为 4
-i=instrument: 选择乐器, 可选
-timeSignature: 拍号, 可选
-midi: 是否仅上传 midi 文件, 可选
-img: 是否仅上传 png 格式的乐谱
-pdf: 是否仅上传 pdf 文件, 可选
-mscz: 是否仅上传 mscz 文件, 可选
-音名序列的判断标准是序列里是否出现了 c~a 或 C~B 中任何一个字符
-# 获取帮助
->!help>
-# 设置 formatMode
->!formatMode=mode>
-# 清理缓存
->!clear-cache>
-
-# 示例
->g>1155665  4433221  5544332  5544332
-等同于
->g>ccggaag+ffeeddc+ggffeed+ggffeed
-等同于
->g>c~g~^~v+f~v~v~v+(repeat 2:g~v~v~v+) (酌情使用
-
-# 公用规则 (如无特殊说明均使用在唱名或音名后, 并可叠加使用)
- # : 升一个半音, 使用在音名或唱名前
- ${'$'} : 降一个半音, 使用在音名或唱名前
- + : 时值变为原来的两倍
- - : 时值变为原来的一半
- . : 时值变为原来的一点五倍
- : : 两个以上音符组成一个和弦
- ~ : 克隆上一个音符
- ^ : 克隆上一个音符, 并升高 1 度
- v : 克隆上一个音符, 并降低 1 度
- ↑ : 升高一个八度
- ↓ : 降低一个八度
- % : 调整力度, 后接最多三位数字
- & : 还原符号
-类似的用法还有 m-w, n-u, q-p, i-!, s-z 升高或降低度数在 ^-v 的基础上逐步递增或递减
-
-# 如果是音名序列则以下规则生效
-a~g: A4~G4
-A~G: A5~G5
- O : 二分休止符 
- o : 四分休止符 
-0-9: 手动修改音域
-
-# 如果是唱名序列则以下规则生效
-1~7: C4~B4
- 0 : 四分休止符
- i : 升高一个八度
- ! : 降低一个八度
- b : 降低一个半音, 使用在唱名前
- * : 后接一个一位数字表示重复次数
- 
-# 宏
-目前可用的宏有
-1. (def symbol=note sequence) 定义一个音符序列
-2. (def symbol:note sequence) 定义一个音符序列, 并在此处展开
-3. (=symbol) 展开 symbol 对应音符序列
-4. (include path) 读取 path 代表的资源并展开, 如果是文件默认目录是插件的数据文件夹
-5. (repeat time: note sequence) 将音符序列重复 times 次
-6. (ifdef symbol: note sequence) 如果定义了 symbol 则展开
-7. (if!def symbol: note sequence) 如果未定义 symbol 则展开
-8. (macro name param1[,params]: note sequence @[param1]) 定义宏
-9. (!name arg1[,arg2]) 展开宏
-10. (velocity linear from~to: note sequence) 调整 note sequence 的力度, 仅适用于长音名序列
-目前宏均不可嵌套使用
-""".trim())
+    val help by value("https://github.com/whiterasbk/MiraiMidiProduce/blob/master/README.md")
 }
