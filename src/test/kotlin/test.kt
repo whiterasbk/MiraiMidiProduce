@@ -3,6 +3,7 @@ package bot.music.whiter
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
 import io.ktor.client.request.*
+import whiter.music.mider.bpm2tempo
 import whiter.music.mider.code.produceCore
 import whiter.music.mider.dsl.Dsl2MusicXml
 import whiter.music.mider.dsl.MiderDSL
@@ -22,7 +23,8 @@ suspend fun main(args: Array<String>) {
 //    println(k)
 
 
-    playMiderCodeFile("C:\\Users\\whiter\\Desktop\\what.midercode")
+//    playMiderCodeFile("C:\\Users\\whiter\\Desktop\\what.midercode")
+    println(bpm2tempo(1072))
 
 
 

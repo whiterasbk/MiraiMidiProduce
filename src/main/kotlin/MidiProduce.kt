@@ -49,14 +49,17 @@ object MidiProduce : KotlinPlugin(
     // todo 1. 出场自带 bgm ( 频率
     // todo 2. 相对音准小测试
     // todo 3. 隔群发送语音, 寻觅知音 (
-    // todo 4. 增加乐器( done but to be fix
+    // todo 4. 增加乐器( done
     // todo 5. 增加力度 done
     // todo 6. mider code for js
     // todo 7. 权限系统, 话说就发个语音有引入命令权限的必要吗 (
     // todo 8. midi 转 mider code
 
-    private val cache = mutableMapOf<String, Message>()
+    val cache = mutableMapOf<String, Message>()
     val tmpDir = resolveDataFile("tmp")
+    lateinit var macroConfig: MacroConfiguration
+    // TODO MiderCodeParserConfiguration.Buider该改改，允许直接 setMacroConfiguration
+    val produceCoreConfiguration = MiderCodeParserConfiguration()
 
     override fun onEnable() {
         logger.info { "MidiProduce loaded" }
@@ -66,6 +69,21 @@ object MidiProduce : KotlinPlugin(
         initTmpAndFormatTransfer()
 
         LyricInception.replace = { it.toPinyin() }
+
+        macroConfig = MacroConfigurationBuilder()
+            .recursionLimit(Config.recursionLimit)
+            .loggerError { logger.info(it) }
+            .loggerError { if (Config.macroUseStrictMode) throw it else this@MidiProduce.logger.error(it) }
+            .fetchMethod {
+                if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
+                    URL(it).openStream().reader().readText()
+                else
+                    resolveDataFile(it.replace("file:", "")).readText()
+            }
+            .build()
+
+        produceCoreConfiguration.macroConfiguration = macroConfig
+        produceCoreConfiguration.isBlankReplaceWith0 = Config.isBlankReplaceWith0
 
         val process: suspend MessageEvent.() -> Unit = {
             var finishFlag = false
@@ -90,7 +108,7 @@ object MidiProduce : KotlinPlugin(
                 oCommandProcess()
             } catch (e: Exception) {
                 logger.error(e)
-                subject.sendMessage("解析错误>${e::class.simpleName}>" + e.message)
+                subject.sendMessage("发生错误>类型:${e::class.simpleName}>" + e.message)
             } finally {
                 finishFlag = true
             }
@@ -181,12 +199,14 @@ object MidiProduce : KotlinPlugin(
             } else if (content == "clear-cache") {
                 cache.clear()
                 subject.sendMessage("cache cleared")
+            } else if (content.startsWith("game-start:")) {
+                gameStart(content.replaceFirst("game-start:", ""))
             }
         }
     }
 
     private suspend fun MessageEvent.generate() {
-        var miderCodeFileName = ""
+        var miderCodeFileName: String? = null
         val underMsg = if (this is GroupMessageEvent && FileMessage in message) {
             val fileMessage = message.find { it is FileMessage }.cast<FileMessage>()
             if (fileMessage.name.endsWith("." + Config.miderCodeFormatName)) {
@@ -200,13 +220,7 @@ object MidiProduce : KotlinPlugin(
         val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
         underMsg.matchRegex(cmdRegex) { msg ->
-
-            var isRenderingNotation: Boolean
-            var isUploadMidi: Boolean
-            var notationType: NotationType? = null
-
-            // TODO (notationType == NotationType.PNGS || notationType == null) 此处必为真
-            if (Config.cache && msg in cache && (notationType == NotationType.PNGS || notationType == null)) {
+            if (Config.cache && msg in cache) {
                 cache[msg]?.let {
                     ifDebug("send from cache")
                     subject.sendMessage(it)
@@ -216,23 +230,6 @@ object MidiProduce : KotlinPlugin(
                 time {
                     logger.info("sounds begin")
 
-                    val macroConfig = MacroConfigurationBuilder()
-                        .recursionLimit(Config.recursionLimit)
-                        .loggerError { logger.info(it) }
-                        .loggerError { if (Config.macroUseStrictMode) throw it else this@MidiProduce.logger.error(it) }
-                        .fetchMethod {
-                            if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
-                                URL(it).openStream().reader().readText()
-                            else
-                                resolveDataFile(it.replace("file:", "")).readText()
-                        }
-
-                    // TODO MiderCodeParserConfiguration.Buider该改改，允许直接 setMacroConfiguration
-                    val produceCoreConfiguration = MiderCodeParserConfiguration()
-
-                    produceCoreConfiguration.macroConfiguration = macroConfig.build()
-                    produceCoreConfiguration.isBlankReplaceWith0 = Config.isBlankReplaceWith0
-
                     val produceCoreResult = produceCore(msg, produceCoreConfiguration)
 
                     /*
@@ -240,17 +237,14 @@ object MidiProduce : KotlinPlugin(
                      - 若干控制类变量的新值
                      - 得到 miderDSL instance
                      */
-                    isRenderingNotation = produceCoreResult.isRenderingNotation
-                    isUploadMidi = produceCoreResult.isUploadMidi
-                    notationType = produceCoreResult.notationType
                     val midiStream: InputStream = fromDslInstance(produceCoreResult.miderDSL).inStream()
 
-                    if (isRenderingNotation) {
+                    if (produceCoreResult.isRenderingNotation) {
                         // 渲染 乐谱
                         val midi = AudioUtilsGetTempFile("mid")
                         midi.writeBytes(midiStream.readAllBytes())
 
-                        when (notationType) {
+                        when (produceCoreResult.notationType) {
                             NotationType.PNGS -> {
                                 val chain = buildMessageChain {
                                     convert2PNGS(midi).forEach { png ->
@@ -285,7 +279,7 @@ object MidiProduce : KotlinPlugin(
 
                             else -> throw Exception("plz provide the output format")
                         }
-                    } else if (isUploadMidi && subject is FileSupported) {
+                    } else if (produceCoreResult.isUploadMidi && subject is FileSupported) {
                         // 上传 midi
                         midiStream.toExternalResource().use {
                             (subject as FileSupported).files.uploadNewFile(
@@ -307,40 +301,7 @@ object MidiProduce : KotlinPlugin(
                             generateAudioStreamByFormatMode(midiStream)
                         }
 
-                        when (this) {
-                            is GroupMessageEvent -> {
-                                val size = stream.available()
-                                if (size > 1024 * 1024) logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
-                                if (size > Config.uploadSize) {
-                                    stream.toExternalResource().use {
-                                        group.files.uploadNewFile(
-                                            miderCodeFileName + "generate-${System.currentTimeMillis()}.mp3",
-                                            it
-                                        )
-                                    }
-                                } else {
-                                    stream.toExternalResource().use {
-                                        val audio = group.uploadAudio(it)
-                                        group.sendMessage(audio)
-                                        if (Config.cache) cache[msg] = audio
-                                    }
-                                }
-                            }
-
-                            is FriendMessageEvent -> {
-                                if (stream.available() > Config.uploadSize) {
-                                    friend.sendMessage("生成的语音过大且bot不能给好友发文件")
-                                } else {
-                                    stream.toExternalResource().use {
-                                        val audio = friend.uploadAudio(it)
-                                        friend.sendMessage(audio)
-                                        if (Config.cache) cache[msg] = audio
-                                    }
-                                }
-                            }
-
-                            else -> throw Exception("打咩")
-                        }
+                        sendAudioMessage(msg, stream, miderCodeFileName)
                     }
                 }
             }
@@ -349,11 +310,11 @@ object MidiProduce : KotlinPlugin(
 }
 
 object Config : AutoSavePluginConfig("config") {
-    @ValueDescription("sinsy 生成语音的声质, -0.8〜0.8")
+    @ValueDescription("sinsy 生成语音的声质, -0.8~0.8")
     val sinsySynAlpha by value(0.55f)
-    @ValueDescription("sinsy 颤音强度, 0.0〜2.0")
+    @ValueDescription("sinsy 颤音强度, 0.0~2.0")
     val sinsyF0shift by value(0)
-    @ValueDescription("sinsy 俯仰变速, -24〜24")
+    @ValueDescription("sinsy 俯仰变速, -24~24")
     val sinsyVibpower by value(1)
     @ValueDescription("sinsy 接口")
     val sinsyLink by value("http://sinsy.sp.nitech.ac.jp")

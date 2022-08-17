@@ -2,8 +2,13 @@ package bot.music.whiter
 
 import io.github.mzdluo123.silk4j.AudioUtils
 import io.github.mzdluo123.silk4j.SilkCoder
+import net.mamoe.mirai.contact.AudioSupported
+import net.mamoe.mirai.contact.Contact
+import net.mamoe.mirai.event.events.FriendMessageEvent
+import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.data.content
+import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.sourceforge.lame.lowlevel.LameEncoder
 import net.sourceforge.lame.mp3.Lame
 import net.sourceforge.lame.mp3.MPEGMode
@@ -19,6 +24,7 @@ import org.apache.commons.exec.PumpStreamHandler
 import whiter.music.mider.code.produceCore
 import whiter.music.mider.dsl.MiderDSL
 import whiter.music.mider.dsl.fromDsl
+import whiter.music.mider.dsl.fromDslInstance
 import whiter.music.mider.dsl.playDslInstance
 import java.io.*
 import java.nio.charset.Charset
@@ -339,4 +345,51 @@ fun String.toPinyin(): String {
 fun playMiderCodeFile(path: String) {
     val r = produceCore(File(path).readText())
     playDslInstance(miderDSL = r.miderDSL)
+}
+
+suspend fun MessageEvent.sendAudioMessage(origin: String, stream: InputStream, attachUploadFileName: String? = null) {
+    when (this) {
+        is GroupMessageEvent -> {
+            val size = stream.available()
+            if (size > 1024 * 1024) MidiProduce.logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
+            if (size > Config.uploadSize) {
+                stream.toExternalResource().use {
+                    group.files.uploadNewFile(
+                         if (attachUploadFileName != null) "$attachUploadFileName-" else "" +
+                                 "generate-${System.currentTimeMillis()}.mp3", it
+                    )
+                }
+            } else {
+                stream.toExternalResource().use {
+                    val audio = group.uploadAudio(it)
+                    group.sendMessage(audio)
+                    if (Config.cache) MidiProduce.cache[origin] = audio
+                }
+            }
+        }
+
+        is FriendMessageEvent -> {
+            if (stream.available() > Config.uploadSize) {
+                friend.sendMessage("生成的语音过大且bot不能给好友发文件")
+            } else {
+                stream.toExternalResource().use {
+                    val audio = friend.uploadAudio(it)
+                    friend.sendMessage(audio)
+                    if (Config.cache) MidiProduce.cache[origin] = audio
+                }
+            }
+        }
+
+        else -> throw Exception("打咩")
+    }
+}
+
+suspend fun AudioSupported.sendMiderCode(code: String) {
+    val result = produceCore(code, MidiProduce.produceCoreConfiguration)
+    val midiStream = fromDslInstance(result.miderDSL).inStream()
+    val audioStream = generateAudioStreamByFormatMode(midiStream)
+    audioStream.toExternalResource().use {
+        val audio = uploadAudio(it)
+        sendMessage(audio)
+    }
 }

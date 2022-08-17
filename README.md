@@ -31,6 +31,7 @@
 >f>
 >120b>
 ```
+**所有轨道共用一个 bpm**
 2. `[数字+x]` 设置倍速, 支持整数和小数
 3. `[/+数字]` 以设定值为音符默认时值
 4. `[数字+%]` 设置轨道音量
@@ -45,7 +46,7 @@
 8. `[数字/数字]` 设置拍号
 9. `[i=instrument]` 设置乐器, `instrument` 见 [MidiInstrument.kt](https://github.com/whiterasbk/mider/blob/dev/src/main/kotlin/whiter/music/mider/MidiInstrument.kt)
 10. `[midi|img|pdf|mscz]` 上传乐谱文件, 如是 img 则会上传图片 **注: 涉及乐谱生成需要先安装 Muse Score** 见 [转换乐谱](#转换乐谱)
-11. `[sing:area:singerId]` 调用 [sinsy](https://www.sinsy.jp/) 接口生成音频. 当  area 和 singerId 都提供时, singerId的格式为 [f|m]+数字 表示选取的是该地区的 第 singerId 位 女性|男性 歌手. 当仅提供 singerId 时, 其格式为 数字, 表示选取 表示符 为 singerId 的歌手. 当两者都不提供时, 相当于选取中国大陆地区的第一位女歌手 香玲 
+11. `[sing:area:singerId]` 调用 [sinsy](https://www.sinsy.jp/) 接口生成音频. 现在只支持 单个音符 和 休止符. 当歌词包含英文时必须使用音名序列. 当 area 和 singerId 都提供时, singerId的格式为 [f|m]+数字 表示选取的是该地区的 第 singerId 位 女性|男性 歌手. 当仅提供 singerId 时, 其格式为 数字, 表示选取 表示符 为 singerId 的歌手. 当两者都不提供时, 相当于选取中国大陆地区的第一位女歌手: 香玲. area 的取值目前只有 cn|us|jp
 
 #### sequence
 sequence 可以是音名序列或是唱名序列, 音名序列的判断标准是序列里是否出现了 `c~a` 或 `C~B` 中任何一个字符
@@ -128,6 +129,10 @@ sequence 可以是音名序列或是唱名序列, 音名序列的判断标准是
 `↟` 和 `↡` 可以创建向上或向下琶音 ~~符号越来越奇怪了啊喂~~
 ```shell
 >g>c:e:g↟
+```
+`t` 可以使 和弦中的音符的时值可以独立作用, 此时和弦的时值是组成音符中时值最长的那个
+```shell
+>g>c+:e:g-t
 ```
 
 ##### 倚音
@@ -289,6 +294,7 @@ mider code 中宏的本质是对某段序列或其中的字母或数字的重复
  - `mp3` 格式在 `pc` 端听不了, `mac` 据说可以 ~~, 哪位富婆可以给咱买一台测试一下(~~
  - 命令还未加入权限, 可以在 [#3](https://github.com/whiterasbk/MiraiMidiProduce/issues/3) 进行讨论
  - 好友环境下生成 `silk` 格式会比 `mp3` 音质低得多 ~~, 听个响属于是~~
+ - 当文本过于长超过 QQ 消息的限制时, 可以将 midercode 保存到文本文件中并修改其扩展名为 .midercode, 上传后 机器人同样能正常识别
 
 ## 构建
 

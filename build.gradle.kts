@@ -27,7 +27,7 @@ repositories {
 
 dependencies {
     implementation("com.github.nwaldispuehl:java-lame:v3.98.4")
-    implementation("com.github.whiterasbk:mider:beta0.9.8")
+    implementation("com.github.whiterasbk:mider:beta0.9.9")
     implementation("io.github.mzdluo123:silk4j:1.1-dev")
     implementation("org.apache.commons:commons-exec:1.3")
     implementation("com.belerweb:pinyin4j:2.5.1")
