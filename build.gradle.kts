@@ -26,11 +26,11 @@ repositories {
 }
 
 dependencies {
-    implementation("com.github.nwaldispuehl:java-lame:v3.98.4")
-    implementation("com.github.whiterasbk:mider:beta0.9.10")
-    implementation("io.github.mzdluo123:silk4j:1.1-dev")
-    implementation("org.apache.commons:commons-exec:1.3")
-    implementation("com.belerweb:pinyin4j:2.5.1")
+    api("com.github.nwaldispuehl:java-lame:v3.98.4")
+    api("com.github.whiterasbk:mider:beta0.9.10")
+    api("io.github.mzdluo123:silk4j:1.1-dev")
+    api("org.apache.commons:commons-exec:1.3")
+    api("com.belerweb:pinyin4j:2.5.1")
 
     // https://mvnrepository.com/artifact/io.ktor/ktor-client-core
     runtimeOnly("io.ktor:ktor-client-core:2.0.0")
