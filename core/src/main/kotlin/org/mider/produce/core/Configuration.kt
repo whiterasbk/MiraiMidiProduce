@@ -33,7 +33,7 @@ data class Configuration (
     var info: (Any) -> Unit = { println(it) },
     var error: (Any) -> Unit = { println(it) },
     var logger: (String) -> Unit = { println(it) },
-    var resolveFileAction: (String) -> File = { File(it) },
+    var resolveFileAction: (String) -> File = { File(System.getProperty("user.dir"), it) },
     var sinsySynAlpha: Float = 0.55f,
     var sinsyF0shift: Int = 0,
     var sinsyVibpower: Int = 1,
