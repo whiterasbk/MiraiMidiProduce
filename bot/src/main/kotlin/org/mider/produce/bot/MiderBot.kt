@@ -56,6 +56,8 @@ object MiderBot : KotlinPlugin(
         val cfg = Configuration(tmpDir)
         cfg.initTmpAndFormatTransfer(this)
 
+        cfg.resolveFileAction = ::resolveDataFile
+
         cfg.info = {
             logger.info(it.toString())
         }
