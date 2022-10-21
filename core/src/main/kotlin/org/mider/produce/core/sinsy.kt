@@ -1,12 +1,12 @@
-package bot.music.whiter
+package org.mider.produce.core
 
 import io.ktor.client.*
 import io.ktor.client.engine.okhttp.*
-import io.ktor.client.features.*
+import io.ktor.client.plugins.*
 import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
+import io.ktor.client.statement.*
 import io.ktor.http.*
-import okio.utf8Size
 import java.io.File
 import java.io.InputStream
 
@@ -53,17 +53,20 @@ private val wavFileNameRegex = Regex("[\\w'\"\\-+#@:,.\\[\\]()]+")
 data class SinsyConfig(
     var SPKR_LANG: String,
     var SPKR: Int,
-    var VIBPOWER: Int = Config.sinsyVibpower,
-    var F0SHIFT: Int = Config.sinsyF0shift,
-    var SYNALPHA: Float = Config.sinsySynAlpha
+    var VIBPOWER: Int,
+    var F0SHIFT: Int,
+    var SYNALPHA: Float,
+    val sinsyLink: String
 )
 
-suspend fun sinsy(xmlPath: String, config: SinsyConfig, sinsyLink: String = Config.sinsyLink): InputStream {
+suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, Long) -> Unit)? = null): InputStream {
     val client = HttpClient(OkHttp)
-    val r = client.post<String>() {
-        url("$sinsyLink/index.php")
+
+    val r = client.post {
+        url("${config.sinsyLink}/index.php")
         header("User-Agent", "Mozilla/5.0")
-        body = MultiPartFormDataContent(formData {
+
+        val body = MultiPartFormDataContent(formData {
             append("SPKR_LANG", config.SPKR_LANG)
             append("SPKR", config.SPKR)
             append("VIBPOWER", config.VIBPOWER)
@@ -77,13 +80,16 @@ suspend fun sinsy(xmlPath: String, config: SinsyConfig, sinsyLink: String = Conf
             })
         })
 
-        onUpload { bytesSentTotal, contentLength ->
-            ifDebug("Sent $bytesSentTotal bytes from $contentLength")
+        setBody(body)
+
+        if (uploadCallback != null) {
+//            "Sent $bytesSentTotal bytes from $contentLength"
+            onUpload(uploadCallback)
         }
     }
 
     var rFileName: String? = null
-    for (i in r.split("temp/")) {
+    for (i in r.bodyAsText().split("temp/")) {
         val i1 = i.split(".")
         if (i1[1].startsWith("wav")) {
             rFileName = wavFileNameRegex.find(i1[0])?.value
@@ -92,5 +98,5 @@ suspend fun sinsy(xmlPath: String, config: SinsyConfig, sinsyLink: String = Conf
     }
 
     if (rFileName == null) throw Exception("combine failed, no results found")
-    return client.get("$sinsyLink/temp/$rFileName.wav")
+    return client.get("${config.sinsyLink}/temp/$rFileName.wav").readBytes().inputStream()
 }

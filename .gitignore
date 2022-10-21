@@ -129,5 +129,7 @@ src/test/kotlin/RunTerminal.kt
 
 # Local Test Launch Point working directory
 /debug-sandbox
+**/debug-sandbox
+RunTerminal.kt
 
 github-package-token

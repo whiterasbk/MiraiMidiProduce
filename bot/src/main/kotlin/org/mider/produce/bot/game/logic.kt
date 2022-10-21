@@ -1,4 +1,4 @@
-package bot.music.whiter
+package org.mider.produce.bot.game
 
 
 import net.mamoe.mirai.event.events.GroupMessageEvent
