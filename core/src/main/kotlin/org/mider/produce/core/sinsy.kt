@@ -61,9 +61,7 @@ data class SinsyConfig(
 )
 
 suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, Long) -> Unit)? = null): InputStream {
-    val client = HttpClient(OkHttp) {
-        install(HttpTimeout)
-    }
+    val client = HttpClient(OkHttp)
 
     val r = client.post {
         url("${config.sinsyLink}/index.php")

@@ -10,10 +10,10 @@ import whiter.music.mider.dsl.fromDslInstance
 import java.io.BufferedInputStream
 import java.io.InputStream
 
-suspend fun Configuration.generate(code: String, miderCfg: MiderCodeParserConfiguration): Pair<ProduceCoreResult, List<Pair<InputStream, String>>> = time {
+suspend fun Configuration.generate(code: String, miderCfg: MiderCodeParserConfiguration? = null): Pair<ProduceCoreResult, List<Pair<InputStream, String>>> = time {
     info("sounds begin")
 
-    val produceCoreResult = produceCore(code, miderCfg)
+    val produceCoreResult = miderCfg?.let { produceCore(code, it) } ?: produceCore(code)
 
     /*
      produceCoreResult的内容:
