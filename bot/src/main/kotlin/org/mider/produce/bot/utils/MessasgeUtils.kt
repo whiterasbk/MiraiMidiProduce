@@ -19,12 +19,13 @@ suspend fun MessageEvent.matchRegex(reg: Regex, block: suspend (String) -> Unit)
 suspend fun MessageEvent.matchRegex(reg: String, block: suspend (String) -> Unit)
     = matchRegex(Regex(reg), block)
 
-suspend fun MessageEvent.sendAudioMessage(Config: Configuration, origin: String, stream: InputStream, attachUploadFileName: String? = null) {
+suspend fun MessageEvent.sendAudioMessage(cfg: Configuration, origin: String, stream: InputStream, attachUploadFileName: String? = null) {
+
     when (this) {
         is GroupMessageEvent -> {
             val size = stream.available()
             if (size > 1024 * 1024) MiderBot.logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
-            if (size > Config.uploadSize) {
+            if (size > cfg.uploadSize) {
                 stream.toExternalResource().use {
                     group.files.uploadNewFile(
                         if (attachUploadFileName != null) "$attachUploadFileName-" else "" +
@@ -35,19 +36,19 @@ suspend fun MessageEvent.sendAudioMessage(Config: Configuration, origin: String,
                 stream.toExternalResource().use {
                     val audio = group.uploadAudio(it)
                     group.sendMessage(audio)
-                    if (Config.cache) MiderBot.cache[origin] = audio
+                    if (cfg.cache) MiderBot.cache[origin] = audio
                 }
             }
         }
 
         is FriendMessageEvent -> {
-            if (stream.available() > Config.uploadSize) {
+            if (stream.available() > cfg.uploadSize) {
                 friend.sendMessage("生成的语音过大且bot不能给好友发文件")
             } else {
                 stream.toExternalResource().use {
                     val audio = friend.uploadAudio(it)
                     friend.sendMessage(audio)
-                    if (Config.cache) MiderBot.cache[origin] = audio
+                    if (cfg.cache) MiderBot.cache[origin] = audio
                 }
             }
         }

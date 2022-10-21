@@ -43,7 +43,7 @@ suspend fun MessageEvent.handle(coreCfg: Configuration, miderCfg: MiderCodeParse
                 subject.sendMessage(it)
             } ?: throw Exception("启用了缓存但是缓存中没有对应的语音消息")
         } else {
-            val (result, generated) = coreCfg.generate("", miderCfg)
+            val (result, generated) = coreCfg.generate(msg, miderCfg)
             val (stream, desc) = generated[0]
 
             when {

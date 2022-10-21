@@ -31,28 +31,11 @@ subprojects {
         }
     }
 
-    //    repositories {
-//
-//        mavenCentral()
-//
-//
-//        maven {
-//
-//        }
-//    }
+
 }
 
-//java {
-//    setSourceCompatibility(11)
-//    setTargetCompatibility(11)
-//}
-
-
-
-
-
 //dependencies {
-//    testImplementation(kotlin("test"))
+//
 //}
 //
 //tasks.test {

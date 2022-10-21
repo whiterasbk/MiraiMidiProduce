@@ -19,8 +19,7 @@ class TestLogic {
         LyricInception.replace = { it.toPinyin() }
 
         val code = """
-    >g;2x;bE;sing>f↓[明]f↓[明]d[很] e[想]-d.[吃]c[鸡]+a↓[却]b↓[又]c[忍]d[不]e[住]-d.[怀]c[疑]+o-c[在]+f[你]f-[的]e.[心]d[里]+d[我]c[是]g[否] g[就]e[是]-f.[唯]a[一]+b[爱]+a[就]g[是]f[请]f[我]d[吃]e[肯]-f.[德]g++[基]
-
+>g;2x;bE;sing>f↓[明]f↓[明]d[很] e[想]-d.[吃]c[鸡]+a↓[却]b↓[又]c[忍]d[不]e[住]-d.[怀]c[疑]+o-c[在]+f[你]f-[的]e.[心]d[里]+d[我]c[是]g[否] g[就]e[是]-f.[唯]a[一]+b[爱]+a[就]g[是]f[请]f[我]d[吃]e[肯]-f.[德]g++[基]
         """.trimIndent()
         val generate = cfg.generate(code)
         val stream = generate.second.first().first
