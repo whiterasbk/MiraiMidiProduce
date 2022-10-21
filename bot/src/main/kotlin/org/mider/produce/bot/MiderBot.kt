@@ -73,9 +73,8 @@ object MiderBot : KotlinPlugin(
         LyricInception.replace = { it.toPinyin() }
 
         macroConfig = MacroConfigurationBuilder()
-            .recursionLimit(BotConfiguration.recursionLimit)
-            .loggerError { logger.info(it) }
-            .loggerError { if (BotConfiguration.macroUseStrictMode) throw it else this@MiderBot.logger.error(it) }
+            .recursionLimit(cfg.recursionLimit)
+            .loggerError { if (cfg.macroUseStrictMode) throw it else this@MiderBot.logger.error(it) }
             .fetchMethod {
                 if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
                     URL(it).openStream().reader().readText()
@@ -162,110 +161,5 @@ object MiderBot : KotlinPlugin(
             }
         }
     }
-
-/*    private suspend fun MessageEvent.generate() {
-        var miderCodeFileName: String? = null
-        val underMsg = if (this is GroupMessageEvent && FileMessage in message) {
-            val fileMessage = message.find { it is FileMessage }.cast<FileMessage>()
-            if (fileMessage.name.endsWith("." + Config.miderCodeFormatName)) {
-                miderCodeFileName = fileMessage.name.split(".")[0] + "-"
-                val url = fileMessage.toAbsoluteFile(group)?.getUrl()
-                val client = HttpClient(OkHttp)
-                client.get(url ?: throw Exception("current file: ${fileMessage.name} does not exist"))
-            } else message.content
-        } else message.content
-
-        val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
-
-        underMsg.matchRegex(cmdRegex) { msg ->
-            if (Config.cache && msg in cache) {
-                cache[msg]?.let {
-                    ifDebug("send from cache")
-                    subject.sendMessage(it)
-                } ?: throw Exception("启用了缓存但是缓存中没有对应的语音消息")
-            } else {
-
-                time {
-                    logger.info("sounds begin")
-
-                    val produceCoreResult = produceCore(msg, produceCoreConfiguration)
-
-
-//                     produceCoreResult的内容:
-//                     - 若干控制类变量的新值
-//                     - 得到 miderDSL instance
-
-                    val midiStream: InputStream = fromDslInstance(produceCoreResult.miderDSL).inStream()
-
-                    if (produceCoreResult.isRenderingNotation) {
-                        // 渲染 乐谱
-                        val midi = AudioUtilsGetTempFile("mid")
-                        midi.writeBytes(midiStream.readAllBytes())
-
-                        when (produceCoreResult.notationType) {
-                            NotationType.PNGS -> {
-                                val chain = buildMessageChain {
-                                    convert2PNGS(midi).forEach { png ->
-                                        png.toExternalResource().use {
-                                            val img = subject.uploadImage(it)
-                                            subject.sendMessage(img)
-                                            delay(50)
-                                            +img
-                                        }
-                                    }
-                                }
-                                if (Config.cache) cache[msg] = chain
-                            }
-
-                            NotationType.PDF -> {
-                                if (subject is FileSupported) {
-                                    val pdf = convert2PDF(midi)
-                                    pdf.toExternalResource().use {
-                                        (subject as FileSupported).files.uploadNewFile(pdf.name, it)
-                                    }
-                                } else subject.sendMessage("打咩")
-                            }
-
-                            NotationType.MSCZ -> {
-                                if (subject is FileSupported) {
-                                    val mscz = convert2MSCZ(midi)
-                                    mscz.toExternalResource().use {
-                                        (subject as FileSupported).files.uploadNewFile(mscz.name, it)
-                                    }
-                                } else subject.sendMessage("打咩")
-                            }
-
-                            else -> throw Exception("plz provide the output format")
-                        }
-                    } else if (produceCoreResult.isUploadMidi && subject is FileSupported) {
-                        // 上传 midi
-                        midiStream.toExternalResource().use {
-                            (subject as FileSupported).files.uploadNewFile(
-                                "generate-${System.currentTimeMillis()}.mid",
-                                it
-                            )
-                        }
-                    } else {
-                        val stream = if (produceCoreResult.isSing) {
-                            val xmlFile = AudioUtilsGetTempFile("xml")
-                            val dsl2MusicXml = Dsl2MusicXml(produceCoreResult.miderDSL)
-                            dsl2MusicXml.save(xmlFile)
-
-                            val singer = selectSinger(produceCoreResult.singSong!!.first to produceCoreResult.singSong!!.second)
-                            val sinsyCfg = SinsyConfig(singer.second, singer.first)
-                            val after = sinsy(xmlFile.absolutePath, sinsyCfg)
-                            generateAudioStreamByFormatModeFromWav(BufferedInputStream(after))
-                        } else {
-                            generateAudioStreamByFormatMode(midiStream)
-                        }
-
-                        sendAudioMessage(msg, stream, miderCodeFileName)
-                    }
-                }
-            }
-        }
-    }*/
-
-
 }
 
