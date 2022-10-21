@@ -37,8 +37,8 @@ suspend fun MessageEvent.handle(coreCfg: Configuration, miderCfg: MiderCodeParse
     val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
     underMsg.matchRegex(cmdRegex) { msg ->
-        if (coreCfg.cache && msg in Bot.cache) {
-            Bot.cache[msg]?.let {
+        if (coreCfg.cache && msg in MiderBot.cache) {
+            MiderBot.cache[msg]?.let {
                 coreCfg.ifDebug("send from cache")
                 subject.sendMessage(it)
             } ?: throw Exception("启用了缓存但是缓存中没有对应的语音消息")
@@ -68,7 +68,7 @@ suspend fun MessageEvent.handle(coreCfg: Configuration, miderCfg: MiderCodeParse
                                     }
                                 }
                             }
-                            if (coreCfg.cache) Bot.cache[msg] = chain
+                            if (coreCfg.cache) MiderBot.cache[msg] = chain
                         }
 
                         NotationType.PDF -> {

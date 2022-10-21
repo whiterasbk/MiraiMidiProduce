@@ -3,13 +3,13 @@ package org.mider.produce.core
 import io.github.mzdluo123.silk4j.AudioUtils
 import java.io.FileFilter
 
-fun Configuration.initTmpAndFormatTransfer() {
+fun Configuration.initTmpAndFormatTransfer(clz: Any) {
     if (!tmpDir.exists()) tmpDir.mkdir()
 
     // unimportant
     val tty = resolveFileAction("2000-years-later.png")
     if (!tty.exists())
-        this.javaClass.classLoader.getResourceAsStream("2000-years-later.png")?.let {
+        clz.javaClass.classLoader.getResourceAsStream("2000-years-later.png")?.let {
             tty.writeBytes(it.readAllBytes())
         } ?: info("can not release 2000-years-later.png")
 

@@ -24,10 +24,10 @@ import whiter.music.mider.code.MiderCodeParserConfiguration
 import whiter.music.mider.xml.LyricInception
 import java.net.URL
 
-object Bot : KotlinPlugin(
+object MiderBot : KotlinPlugin(
     JvmPluginDescription(
         id = "org.mider.produce.bot",
-        name = "Bot",
+        name = "MiderBot",
         version = "0.1.8",
     ) {
         author("whiterasbk")
@@ -54,7 +54,7 @@ object Bot : KotlinPlugin(
         BotConfiguration.reload()
 
         val cfg = Configuration(tmpDir)
-        cfg.initTmpAndFormatTransfer()
+        cfg.initTmpAndFormatTransfer(this)
 
         cfg.info = {
             logger.info(it.toString())
@@ -73,7 +73,7 @@ object Bot : KotlinPlugin(
         macroConfig = MacroConfigurationBuilder()
             .recursionLimit(BotConfiguration.recursionLimit)
             .loggerError { logger.info(it) }
-            .loggerError { if (BotConfiguration.macroUseStrictMode) throw it else this@Bot.logger.error(it) }
+            .loggerError { if (BotConfiguration.macroUseStrictMode) throw it else this@MiderBot.logger.error(it) }
             .fetchMethod {
                 if (it.startsWith("http://") || it.startsWith("https://") || it.startsWith("ftp://"))
                     URL(it).openStream().reader().readText()

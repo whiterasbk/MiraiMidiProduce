@@ -6,8 +6,8 @@ dependencies {
     implementation("org.apache.commons:commons-exec:1.3")
     implementation("com.belerweb:pinyin4j:2.5.1")
 
-    api("io.ktor:ktor-client-core:2.1.1")
-    api("io.ktor:ktor-client-okhttp:2.1.1")
+    api("io.ktor:ktor-client-core:2.0.0")
+    api("io.ktor:ktor-client-okhttp:2.0.0")
 
 
 //    implementation("io.ktor:ktor-client-core:2.1.2")

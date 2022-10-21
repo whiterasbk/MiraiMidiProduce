@@ -6,7 +6,7 @@ import net.mamoe.mirai.event.events.GroupMessageEvent
 import net.mamoe.mirai.event.events.MessageEvent
 import net.mamoe.mirai.message.data.content
 import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
-import org.mider.produce.bot.Bot
+import org.mider.produce.bot.MiderBot
 import org.mider.produce.core.Configuration
 import org.mider.produce.core.utils.*
 import whiter.music.mider.code.produceCore
@@ -23,7 +23,7 @@ suspend fun MessageEvent.sendAudioMessage(Config: Configuration, origin: String,
     when (this) {
         is GroupMessageEvent -> {
             val size = stream.available()
-            if (size > 1024 * 1024) Bot.logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
+            if (size > 1024 * 1024) MiderBot.logger.info("文件大于 1m 可能导致语音无法播放, 大于 upload size 时将自动转为文件上传")
             if (size > Config.uploadSize) {
                 stream.toExternalResource().use {
                     group.files.uploadNewFile(
@@ -35,7 +35,7 @@ suspend fun MessageEvent.sendAudioMessage(Config: Configuration, origin: String,
                 stream.toExternalResource().use {
                     val audio = group.uploadAudio(it)
                     group.sendMessage(audio)
-                    if (Config.cache) Bot.cache[origin] = audio
+                    if (Config.cache) MiderBot.cache[origin] = audio
                 }
             }
         }
@@ -47,7 +47,7 @@ suspend fun MessageEvent.sendAudioMessage(Config: Configuration, origin: String,
                 stream.toExternalResource().use {
                     val audio = friend.uploadAudio(it)
                     friend.sendMessage(audio)
-                    if (Config.cache) Bot.cache[origin] = audio
+                    if (Config.cache) MiderBot.cache[origin] = audio
                 }
             }
         }
@@ -57,7 +57,7 @@ suspend fun MessageEvent.sendAudioMessage(Config: Configuration, origin: String,
 }
 
 suspend fun AudioSupported.sendMiderCode(cfg: Configuration, code: String) {
-    val result = produceCore(code, Bot.produceCoreConfiguration)
+    val result = produceCore(code, MiderBot.produceCoreConfiguration)
     val midiStream = fromDslInstance(result.miderDSL).inStream()
     val audioStream = cfg.generateAudioStreamByFormatMode(midiStream)
     audioStream.toExternalResource().use {

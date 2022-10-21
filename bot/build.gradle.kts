@@ -1,6 +1,6 @@
 
 plugins {
-    id("net.mamoe.mirai-console") version "2.12.3"
+    id("net.mamoe.mirai-console") version "2.10.4"
 }
 
 dependencies {

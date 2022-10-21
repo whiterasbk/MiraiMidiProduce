@@ -7,6 +7,7 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
+import okio.Timeout
 import java.io.File
 import java.io.InputStream
 
@@ -60,7 +61,9 @@ data class SinsyConfig(
 )
 
 suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, Long) -> Unit)? = null): InputStream {
-    val client = HttpClient(OkHttp)
+    val client = HttpClient(OkHttp) {
+        install(HttpTimeout)
+    }
 
     val r = client.post {
         url("${config.sinsyLink}/index.php")
