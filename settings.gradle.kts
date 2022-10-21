@@ -1,3 +1,3 @@
 
-rootProject.name = "MiderProduce-Migration"
+rootProject.name = "MiderProduce"
 include("core", "bot")
