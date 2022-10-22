@@ -4,6 +4,8 @@ plugins {
     kotlin("jvm") version kotlinVersion apply false
     kotlin("plugin.serialization") version kotlinVersion apply false
     id("net.mamoe.mirai-console") version "2.12.3" apply false
+    id("io.ktor.plugin") version "2.1.2" apply false
+    // application // apply false
 }
 
 allprojects {
@@ -13,8 +15,12 @@ allprojects {
 
 subprojects {
 
-    apply(plugin = "org.jetbrains.kotlin.jvm")
-    apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
+//    println(this.name)
+
+//    if (name != "service") {
+        apply(plugin = "org.jetbrains.kotlin.jvm")
+        apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
+//    }
 
     repositories {
         maven("https://jitpack.io")
@@ -31,17 +37,4 @@ subprojects {
         }
     }
 
-
 }
-
-//dependencies {
-//
-//}
-//
-//tasks.test {
-//    useJUnitPlatform()
-//}
-//
-//tasks.withType<KotlinCompile> {
-//    kotlinOptions.jvmTarget = "1.8"
-//}

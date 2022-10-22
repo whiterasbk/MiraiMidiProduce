@@ -1,3 +1,3 @@
 
 rootProject.name = "MiderProduce"
-include("core", "bot")
+include("core", "bot", "service")
