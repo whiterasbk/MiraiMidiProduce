@@ -1,8 +1,7 @@
-package org.mider.produce
+package org.mider.produce.service
 
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
-import org.mider.produce.plugins.*
 import org.mider.produce.service.plugins.configureRouting
 
 fun main() {
