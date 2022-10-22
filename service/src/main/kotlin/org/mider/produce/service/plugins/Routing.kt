@@ -1,4 +1,4 @@
-package org.mider.produce.plugins
+package org.mider.produce.service.plugins
 
 import io.ktor.server.routing.*
 import io.ktor.http.*
