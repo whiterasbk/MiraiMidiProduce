@@ -10,7 +10,7 @@ apply(plugin = "io.ktor.plugin")
 apply(plugin = "application")
 
 application {
-    mainClass.set("org.mider.produce.service.plugins.ApplicationKt")
+    mainClass.set("org.mider.produce.service.ApplicationKt")
 
     val isDevelopment: Boolean = project.ext.has("development")
     applicationDefaultJvmArgs = listOf("-Dio.ktor.development=$isDevelopment")
