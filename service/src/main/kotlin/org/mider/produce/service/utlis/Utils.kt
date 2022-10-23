@@ -6,7 +6,7 @@ import org.mider.produce.core.Configuration
 import java.io.File
 
 const val configPrefix = "service.produce"
-const val isDebugging = true
+const val isDebugging = false
 
 fun getConfiguration(app: Application): Pair<Configuration, File> {
 

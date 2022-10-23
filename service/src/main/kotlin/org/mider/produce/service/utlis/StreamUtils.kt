@@ -1,7 +1,5 @@
 package org.mider.produce.service.utlis
 
-import java.io.File
-import java.io.InputStream
 import java.security.MessageDigest
 
 fun String.hash(): String = MessageDigest
