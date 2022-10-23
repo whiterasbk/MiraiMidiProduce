@@ -132,4 +132,7 @@ src/test/kotlin/RunTerminal.kt
 **/debug-sandbox
 RunTerminal.kt
 
+service/src/test/resources/generated
+service/src/test/resources/tmp
+
 github-package-token

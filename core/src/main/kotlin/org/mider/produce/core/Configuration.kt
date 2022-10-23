@@ -1,5 +1,7 @@
 package org.mider.produce.core
 
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.Serializable
 import java.io.File
 
 /**
@@ -28,12 +30,13 @@ import java.io.File
  * @param uploadSize 超过这个大小则自动改为文件上传
  * @param help 帮助信息 (更新版本时记得要删掉这一行)
  */
+
 data class Configuration (
     var tmpDir: File,
     var info: (Any) -> Unit = { println(it) },
     var error: (Any) -> Unit = { println(it) },
     var logger: (String) -> Unit = { println(it) },
-    var resolveFileAction: (String) -> File = { File(System.getProperty("user.dir"), it) },
+    var resolveFileAction: (String) -> File = { File(tmpDir, it) },
     var sinsySynAlpha: Float = 0.55f,
     var sinsyF0shift: Int = 0,
     var sinsyVibpower: Int = 1,
