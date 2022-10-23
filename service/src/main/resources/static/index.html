@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+
+    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.2/css/bootstrap.css" rel="stylesheet">
+
+    <style>
+        .enter-code {
+            padding-top: 2em;
+        }
+        #show {
+            margin-top: 5em;
+            min-height: 200px;
+        }
+    </style>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+
+    <div class="container" id="app">
+
+        <div class="row">
+            <div class="col-3"></div>
+            <div class="col">
+                <div id = "show">
+                    {{message}}
+                    <img style="max-height: 200px" :src="imgSrc">
+                </div>
+                <div class="enter-code">
+                    <label class="form-label">enter mider code</label>
+                    <label for="exampleFormControlTextarea1"></label>
+                    <textarea v-model="input" @keydown.enter="enter" class="form-control" id="exampleFormControlTextarea1" rows="3">
+                    </textarea>
+                </div>
+            </div>
+            <div class="col-3">
+
+            </div>
+        </div>
+
+    </div>
+
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.1.3/axios.js"></script>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    message: '',
+                    input: '',
+                    show : "show show need",
+                    audio_src: "",
+                    imgSrc: ""
+                }
+            },
+            methods: {
+
+                enter() {
+                    let code = this.input
+                    let thisRef = this
+                    axios.post('/api', {
+                        midercode: code
+                    }).then(function (response) {
+                        let data = response.data;
+                        if (data.status === "success") {
+                            // console.log(data)
+                            thisRef.message = ""
+                            if (data.type === "mp3") {
+                                let audio = new Audio()
+                                audio.src = data.links[0].stream
+                                audio.play();
+                            } else if (data.type === "notation" || data.type === "png") {
+                                for (let i in data.links[0]) {
+                                    thisRef.imgSrc = data.links[0][i]
+                                    // console.log(data.links[0][i])
+                                }
+                            }
+                        }
+                        else {
+                            thisRef.message = data.message
+                        }
+                    })
+                }
+            }
+        }).mount('#app')
+    </script>
+
+</body>
+</html>

@@ -2,5 +2,5 @@ POST localhost:8080/api
 Content-Type: application/json
 
 {
-  "midercode": ">g>1234"
+  "midercode": ">g>1155665 4433221"
 }
