@@ -12,7 +12,7 @@ fun getConfiguration(app: Application): Pair<Configuration, File> {
 
     val generatedWorkspace = app.environment.config.propertyOrNull("generatedDir")?.getString()?.let {
         val dir = File(it)
-        if (!dir.exists()) throw Exception("")
+        if (!dir.exists()) throw Exception("configured generatedDir is not exist")
         dir
     } ?: run {
         val dir = File(System.getProperty("user.dir"), if (isDebugging) "src/test/resources/generated" else "generated")
@@ -22,7 +22,7 @@ fun getConfiguration(app: Application): Pair<Configuration, File> {
 
     val tmpDir = app.environment.config.propertyOrNull("tmpDir")?.getString()?.let {
         val dir = File(it)
-        if (!dir.exists()) throw Exception("")
+        if (!dir.exists()) throw Exception("configured tmpDir is not exist")
         dir
     } ?: run {
         val dir = File(System.getProperty("user.dir"), if (isDebugging) "src/test/resources/tmp" else "tmp")

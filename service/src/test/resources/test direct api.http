@@ -2,5 +2,5 @@ POST localhost:8080/direct-api
 Content-Type: application/json
 
 {
-  "midercode": ">g;4x;img>123342a"
+  "midercode": ">g;4x;img>123342"
 }
