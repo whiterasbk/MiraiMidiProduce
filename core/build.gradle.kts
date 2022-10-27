@@ -1,6 +1,10 @@
 
 
 dependencies {
+
+    api("org.jetbrains.kotlinx:kotlinx-serialization-core-jvm:1.3.2")
+    api("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.3.2")
+
     implementation("com.github.nwaldispuehl:java-lame:v3.98.4")
     api("com.github.whiterasbk:mider:beta0.9.14")
     api("io.github.mzdluo123:silk4j:1.1-dev")

@@ -1,13 +1,15 @@
 package org.mider.produce
 
-import io.ktor.server.routing.*
-import io.ktor.http.*
-import io.ktor.server.application.*
-import io.ktor.server.response.*
-import io.ktor.server.request.*
-import kotlin.test.*
-import io.ktor.server.testing.*
-import org.mider.produce.plugins.*
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.json.Json
+import org.junit.Test
+import org.mider.produce.service.data.ServiceParameter
 
 class ApplicationTest {
+
+    @Test
+    fun `test data service parameter`() {
+        val b = Json.decodeFromString<ServiceParameter>("""{}""")
+        println(b)
+    }
 }

@@ -5,7 +5,6 @@ plugins {
     kotlin("plugin.serialization") version kotlinVersion apply false
     id("net.mamoe.mirai-console") version "2.12.3" apply false
     id("io.ktor.plugin") version "2.1.2" apply false
-    // application // apply false
 }
 
 allprojects {
@@ -15,22 +14,22 @@ allprojects {
 
 subprojects {
 
-//    println(this.name)
-
-//    if (name != "service") {
-        apply(plugin = "org.jetbrains.kotlin.jvm")
-        apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
-//    }
+    apply(plugin = "org.jetbrains.kotlin.jvm")
+    apply(plugin = "org.jetbrains.kotlin.plugin.serialization")
 
     repositories {
+        mavenCentral()
         maven("https://jitpack.io")
         maven("https://maven.aliyun.com/repository/central")
-        mavenCentral()
 
         maven {
             url = uri("https://maven.pkg.github.com/mzdluo123/silk4j")
             credentials {
-                val texts = File(rootDir.absoluteFile, "github-package-token").readText().split(",")
+                val file = File(rootDir.absoluteFile, "github-package-token")
+
+                if (!file.exists()) throw Exception("please provide github-package-token with token,name inside in root path")
+
+                val texts = file.readText().split(",")
                 username = texts[0].trim() // 填写用户名
                 password = texts[1].trim() // 填写 token
             }
