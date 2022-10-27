@@ -44,7 +44,17 @@ suspend fun Configuration.generate(code: String, miderCfg: MiderCodeParserConfig
         dsl2MusicXml.save(xmlFile)
 
         val singer = selectSinger(produceCoreResult.singSong!!.first to produceCoreResult.singSong!!.second)
-        val sinsyCfg = SinsyConfig(singer.second, singer.first, sinsyVibpower, sinsyF0shift, sinsySynAlpha, sinsyLink)
+        val sinsyCfg = SinsyConfig(
+            singer.second,
+            singer.first,
+            sinsyVibpower,
+            sinsyF0shift,
+            sinsySynAlpha,
+            sinsyLink,
+            sinsyClientRequestTimeoutMillis,
+            sinsyClientConnectTimeoutMillis,
+            sinsyClientSocketTimeoutMillis
+        )
         val after = sinsy(xmlFile.absolutePath, sinsyCfg)
         result += generateAudioStreamByFormatModeFromWav(BufferedInputStream(after)) to "stream"
     } else {

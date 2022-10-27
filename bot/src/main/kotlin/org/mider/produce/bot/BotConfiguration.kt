@@ -15,6 +15,14 @@ object BotConfiguration : AutoSavePluginConfig("config") {
     val sinsyVibpower by value(1)
     @ValueDescription("sinsy 接口")
     val sinsyLink by value("http://sinsy.sp.nitech.ac.jp")
+
+    @ValueDescription("sinsyClientRequestTimeoutMillis")
+    val sinsyClientRequestTimeoutMillis: Long by value(5 * 60_000L)
+    @ValueDescription("sinsyClientConnectTimeoutMillis")
+    val sinsyClientConnectTimeoutMillis: Long by value(5 * 60_000L)
+    @ValueDescription("sinsyClientSocketTimeoutMillis")
+    val sinsyClientSocketTimeoutMillis: Long by value(5 * 60_000L)
+
     @ValueDescription("上传文件的触发格式")
     val miderCodeFormatName by value("midercode")
     @ValueDescription("2000year")
@@ -77,6 +85,11 @@ object BotConfiguration : AutoSavePluginConfig("config") {
         coreCfg.sinsyF0shift = sinsyF0shift
         coreCfg.sinsyVibpower = sinsyVibpower
         coreCfg.sinsyLink = sinsyLink
+
+        coreCfg.sinsyClientRequestTimeoutMillis = sinsyClientRequestTimeoutMillis
+        coreCfg.sinsyClientConnectTimeoutMillis = sinsyClientConnectTimeoutMillis
+        coreCfg.sinsyClientSocketTimeoutMillis = sinsyClientSocketTimeoutMillis
+
         coreCfg.miderCodeFormatName = miderCodeFormatName
         coreCfg.selfMockeryTime = selfMockeryTime
         coreCfg.selfMockery = selfMockery

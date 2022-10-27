@@ -7,7 +7,6 @@ import io.ktor.client.request.*
 import io.ktor.client.request.forms.*
 import io.ktor.client.statement.*
 import io.ktor.http.*
-import okio.Timeout
 import java.io.File
 import java.io.InputStream
 
@@ -57,17 +56,27 @@ data class SinsyConfig(
     var VIBPOWER: Int,
     var F0SHIFT: Int,
     var SYNALPHA: Float,
-    val sinsyLink: String
+    val sinsyLink: String,
+    val sinsyClientRequestTimeoutMillis: Long = 60_000L,
+    val sinsyClientConnectTimeoutMillis: Long = 60_000L,
+    val sinsyClientSocketTimeoutMillis: Long  = 60_000L
 )
 
-suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, Long) -> Unit)? = null): InputStream {
-    val client = HttpClient(OkHttp)
+private fun sinsyClient(cfg: SinsyConfig) = HttpClient(OkHttp) {
+    install(HttpTimeout) {
+        requestTimeoutMillis = cfg.sinsyClientRequestTimeoutMillis
+        connectTimeoutMillis = cfg.sinsyClientConnectTimeoutMillis
+        socketTimeoutMillis = cfg.sinsyClientSocketTimeoutMillis
+    }
+}
 
-    val r = client.post {
+suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, Long) -> Unit)? = null): InputStream {
+
+    val r = sinsyClient(config).post {
         url("${config.sinsyLink}/index.php")
         header("User-Agent", "Mozilla/5.0")
 
-        val body = MultiPartFormDataContent(formData {
+        setBody(MultiPartFormDataContent(formData {
             append("SPKR_LANG", config.SPKR_LANG)
             append("SPKR", config.SPKR)
             append("VIBPOWER", config.VIBPOWER)
@@ -77,14 +86,12 @@ suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, 
             append("SYNSRC", file.readBytes(), Headers.build {
                 append(HttpHeaders.UserAgent, "Mozilla/5.0")
                 append(HttpHeaders.ContentType, "text/xml")
+                append(HttpHeaders.Connection, "Keep-Alive")
                 append(HttpHeaders.ContentDisposition, "filename=\"${file.name}\"")
             })
-        })
-
-        setBody(body)
+        }))
 
         if (uploadCallback != null) {
-//            "Sent $bytesSentTotal bytes from $contentLength"
             onUpload(uploadCallback)
         }
     }
@@ -98,6 +105,7 @@ suspend fun sinsy(xmlPath: String, config: SinsyConfig, uploadCallback: ((Long, 
         }
     }
 
+
     if (rFileName == null) throw Exception("combine failed, no results found")
-    return client.get("${config.sinsyLink}/temp/$rFileName.wav").readBytes().inputStream()
+    return sinsyClient(config).get("${config.sinsyLink}/temp/$rFileName.wav").readBytes().inputStream()
 }

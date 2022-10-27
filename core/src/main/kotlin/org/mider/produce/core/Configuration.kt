@@ -29,7 +29,7 @@ import java.io.File
  * @param help 帮助信息 (更新版本时记得要删掉这一行)
  */
 data class Configuration (
-    var tmpDir: File,
+    var tmpDir: File, // = File(System.getProperty("user.dir")),
     var info: (Any) -> Unit = { println(it) },
     var error: (Any) -> Unit = { println(it) },
     var logger: (String) -> Unit = { println(it) },
@@ -37,6 +37,11 @@ data class Configuration (
     var sinsySynAlpha: Float = 0.55f,
     var sinsyF0shift: Int = 0,
     var sinsyVibpower: Int = 1,
+
+    var sinsyClientRequestTimeoutMillis: Long = 5 * 60_000L,
+    var sinsyClientConnectTimeoutMillis: Long = 5 * 60_000L,
+    var sinsyClientSocketTimeoutMillis: Long  = 5 * 60_000L,
+
     var sinsyLink: String = "http://sinsy.sp.nitech.ac.jp",
     var miderCodeFormatName: String = "midercode",
     var selfMockeryTime: Long = 7*1000L,
