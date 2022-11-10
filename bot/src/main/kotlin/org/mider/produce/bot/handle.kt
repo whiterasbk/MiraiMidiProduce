@@ -22,6 +22,70 @@ import whiter.music.mider.code.MiderCodeParserConfiguration
 import whiter.music.mider.code.NotationType
 import whiter.music.mider.code.startRegex
 
+suspend fun MessageEvent.handle(midercode: String, coreCfg: Configuration, miderCfg: MiderCodeParserConfiguration, miderCodeFileName: String? = null)  {
+    val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
+
+    midercode.matchRegex(cmdRegex) { msg ->
+        if (coreCfg.cache && msg in MiderBot.cache) {
+            MiderBot.cache[msg]?.let {
+                coreCfg.ifDebug("send from cache")
+                subject.sendMessage(it)
+            } ?: throw Exception("启用了缓存但是缓存中没有对应的语音消息")
+        } else {
+            val (result, generated) = coreCfg.generate(msg, miderCfg)
+            val (stream, desc) = generated[0]
+
+            when {
+                result.isUploadMidi -> stream.toExternalResource().use {
+                    (subject as FileSupported).files.uploadNewFile(
+                        "generate-${System.currentTimeMillis()}.mid",
+                        it
+                    )
+                }
+
+                result.isRenderingNotation -> {
+                    when (result.notationType) {
+                        NotationType.PNGS -> {
+                            val chain = buildMessageChain {
+                                generated.forEach { pair ->
+                                    val (png, _) = pair
+                                    png.toExternalResource().use {
+                                        val img = subject.uploadImage(it)
+                                        subject.sendMessage(img)
+                                        delay(50)
+                                        +img
+                                    }
+                                }
+                            }
+                            if (coreCfg.cache) MiderBot.cache[msg] = chain
+                        }
+
+                        NotationType.PDF -> {
+                            if (subject is FileSupported) {
+                                stream.toExternalResource().use {
+                                    (subject as FileSupported).files.uploadNewFile(desc, it)
+                                }
+                            } else subject.sendMessage("打咩")
+                        }
+
+                        NotationType.MSCZ -> {
+                            if (subject is FileSupported) {
+                                stream.toExternalResource().use {
+                                    (subject as FileSupported).files.uploadNewFile(desc, it)
+                                }
+                            } else subject.sendMessage("打咩")
+                        }
+
+                        else -> throw Exception("plz provide the output format")
+                    }
+                }
+
+                else -> sendAudioMessage(coreCfg, msg, stream, miderCodeFileName)
+            }
+        }
+    }
+}
+
 suspend fun MessageEvent.handle(coreCfg: Configuration, miderCfg: MiderCodeParserConfiguration) {
     var miderCodeFileName: String? = null
     val underMsg = if (this is GroupMessageEvent && FileMessage in message) {
@@ -34,7 +98,9 @@ suspend fun MessageEvent.handle(coreCfg: Configuration, miderCfg: MiderCodeParse
         } else message.content
     } else message.content
 
-    val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
+    handle(underMsg, coreCfg, miderCfg, miderCodeFileName)
+
+    /*val cmdRegex = Regex("${startRegex.pattern}[\\S\\s]+")
 
     underMsg.matchRegex(cmdRegex) { msg ->
         if (coreCfg.cache && msg in MiderBot.cache) {
@@ -94,5 +160,5 @@ suspend fun MessageEvent.handle(coreCfg: Configuration, miderCfg: MiderCodeParse
                 else -> sendAudioMessage(coreCfg, msg, stream, miderCodeFileName)
             }
         }
-    }
+    }*/
 }

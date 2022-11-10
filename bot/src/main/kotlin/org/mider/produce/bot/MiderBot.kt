@@ -1,6 +1,10 @@
 package org.mider.produce.bot
 
 import io.github.mzdluo123.silk4j.AudioUtils
+import io.ktor.client.*
+import io.ktor.client.engine.okhttp.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import net.mamoe.mirai.console.plugin.jvm.JvmPluginDescription
@@ -15,6 +19,7 @@ import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.info
 import org.mider.produce.bot.game.gameStart
 import org.mider.produce.bot.utils.matchRegex
+import org.mider.produce.bot.utils.sendAudioMessage
 import org.mider.produce.core.Configuration
 import org.mider.produce.core.initTmpAndFormatTransfer
 import org.mider.produce.core.utils.toPinyin
@@ -47,13 +52,13 @@ object MiderBot : KotlinPlugin(
     private lateinit var macroConfig: MacroConfiguration
     // TODO MiderCodeParserConfiguration.Buider该改改，允许直接 setMacroConfiguration
     val produceCoreConfiguration = MiderCodeParserConfiguration()
+    val cfg = Configuration(tmpDir)
 
     override fun onEnable() {
         logger.info { "MidiProduce loaded" }
 
         BotConfiguration.reload()
 
-        val cfg = Configuration(tmpDir)
         cfg.resolveFileAction = ::resolveDataFile
 
         cfg.initTmpAndFormatTransfer(this)
@@ -157,7 +162,17 @@ object MiderBot : KotlinPlugin(
                 cache.clear()
                 subject.sendMessage("cache cleared")
             } else if (content == "random") {
-
+                val list = getResource("melody-list.txt") ?: run {
+                    subject.sendMessage("melody-list.txt is not found.")
+                    return@matchRegex
+                }
+                val entries = list.lines().map { line ->
+                    val entry = line.split(Regex(": "), 2)
+                    entry[0] to entry[1]
+                }
+                val pick = entries.random()
+                val midercode = HttpClient(OkHttp).get(pick.second).bodyAsText()
+                handle(midercode, cfg, produceCoreConfiguration, pick.first + ".mp3")
             } else if (content.startsWith("game-start:")) {
                 gameStart(content.replaceFirst("game-start:", ""))
             }
