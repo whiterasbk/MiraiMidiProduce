@@ -127,7 +127,7 @@ object MiderBot : KotlinPlugin(
     }
 
     private suspend fun MessageEvent.oCommandProcess() {
-        val oCmdRegex = Regex(">!([\\w@=:&%$#\\->]+)>")
+        val oCmdRegex = Regex(">!([\\w@=:&%$#\\->]+)>?")
         matchRegex(oCmdRegex) {
             val content = oCmdRegex.matchEntire(it)!!.groupValues[1]
             if (content == "help") {
@@ -156,6 +156,8 @@ object MiderBot : KotlinPlugin(
             } else if (content == "clear-cache") {
                 cache.clear()
                 subject.sendMessage("cache cleared")
+            } else if (content == "random") {
+
             } else if (content.startsWith("game-start:")) {
                 gameStart(content.replaceFirst("game-start:", ""))
             }
