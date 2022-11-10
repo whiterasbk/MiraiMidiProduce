@@ -161,7 +161,7 @@ object MiderBot : KotlinPlugin(
             } else if (content == "clear-cache") {
                 cache.clear()
                 subject.sendMessage("cache cleared")
-            } else if (content == "random") {
+            } else if (content == "sample") {
                 val list = getResource("melody-list.txt") ?: run {
                     subject.sendMessage("melody-list.txt is not found.")
                     return@matchRegex
@@ -172,6 +172,7 @@ object MiderBot : KotlinPlugin(
                 }
                 val pick = entries.random()
                 val midercode = HttpClient(OkHttp).get(pick.second).bodyAsText()
+                subject.sendMessage("now playing: " + pick.first + "\nmidercode: \n$midercode".trim())
                 handle(midercode, cfg, produceCoreConfiguration, pick.first + ".mp3")
             } else if (content.startsWith("game-start:")) {
                 gameStart(content.replaceFirst("game-start:", ""))
