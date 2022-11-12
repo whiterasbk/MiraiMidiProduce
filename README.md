@@ -251,6 +251,10 @@ mider code 中宏的本质是对某段序列或其中的字母或数字的重复
 ```shell
 >!clear-cache
 ```
+发送来自 `awesome-melody` 的 示例 `midercode`
+```shell
+>!sample
+```
 
 ## todo list
 
