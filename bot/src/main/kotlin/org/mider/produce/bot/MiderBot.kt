@@ -22,6 +22,7 @@ import org.mider.produce.bot.utils.matchRegex
 import org.mider.produce.bot.utils.sendAudioMessage
 import org.mider.produce.core.Configuration
 import org.mider.produce.core.initTmpAndFormatTransfer
+import org.mider.produce.core.switchToSilk4j
 import org.mider.produce.core.utils.toPinyin
 import whiter.music.mider.code.MacroConfiguration
 import whiter.music.mider.code.MacroConfigurationBuilder
@@ -55,25 +56,19 @@ object MiderBot : KotlinPlugin(
     val cfg = Configuration(tmpDir)
 
     override fun onEnable() {
-        logger.info { "MidiProduce loaded" }
 
         BotConfiguration.reload()
+        BotConfiguration.copy(cfg)
 
         cfg.resolveFileAction = ::resolveDataFile
 
         cfg.initTmpAndFormatTransfer(this)
 
-        cfg.info = {
-            logger.info(it.toString())
-        }
+        cfg.info = { logger.info(it.toString()) }
 
         cfg.error = {
-            if (it is Throwable)
-                logger.error(it)
-            else logger.error(it.toString())
+            if (it is Throwable) logger.error(it) else logger.error(it.toString())
         }
-
-        BotConfiguration.copy(cfg)
 
         LyricInception.replace = { it.toPinyin() }
 
@@ -129,6 +124,8 @@ object MiderBot : KotlinPlugin(
         botEvent.subscribeAlways<FriendMessageEvent> {
             process()
         }
+
+        logger.info { "MidiProduce loaded" }
     }
 
     private suspend fun MessageEvent.oCommandProcess() {
@@ -143,7 +140,7 @@ object MiderBot : KotlinPlugin(
                     "timidity->java-lame", "timidity->java-lame->silk4j", "muse-score", "muse-score->silk4j" -> {
                         val before = BotConfiguration.formatMode
                         BotConfiguration.formatMode = mode
-                        if (mode.contains("silk4j")) AudioUtils.init(tmpDir)
+                        if (mode.contains("silk4j")) switchToSilk4j(tmpDir)
                         cache.clear()
                         subject.sendMessage("设置生成模式成功, 由 $before 切换为 $mode")
                     }

@@ -1,6 +1,7 @@
 package org.mider.produce.core
 
 import io.github.mzdluo123.silk4j.AudioUtils
+import java.io.File
 import java.io.FileFilter
 
 fun Configuration.initTmpAndFormatTransfer(clz: Any) {
@@ -31,7 +32,7 @@ fun Configuration.initTmpAndFormatTransfer(clz: Any) {
 
     if (formatMode.contains("silk4j")) {
         try {
-            AudioUtils.init(tmpDir)
+            switchToSilk4j(tmpDir)
         } catch (e: Exception) {
             error("silk4j 加载失败, 将无法生成语音")
             error(e)
@@ -45,4 +46,8 @@ fun Configuration.initTmpAndFormatTransfer(clz: Any) {
     if (formatMode.contains("ffmpeg") && ffmpegConvertCommand.isBlank()) {
         error("ffmpeg 命令未配置, 将无法生成语音(mp3)")
     }
+}
+
+fun switchToSilk4j(tmpDir: File) {
+    AudioUtils.init(tmpDir)
 }
