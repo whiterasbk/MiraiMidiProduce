@@ -6,7 +6,7 @@ dependencies {
     api("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.3.2")
 
     implementation("com.github.nwaldispuehl:java-lame:v3.98.4")
-    api("com.github.whiterasbk:mider:beta0.9.14")
+    api("com.github.whiterasbk:mider:beta0.9.16")
     api("io.github.mzdluo123:silk4j:1.1-dev")
     implementation("org.apache.commons:commons-exec:1.3")
     api("com.belerweb:pinyin4j:2.5.1")
