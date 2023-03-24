@@ -9,6 +9,7 @@ import org.apache.commons.exec.CommandLine
 import org.apache.commons.exec.DefaultExecutor
 import org.apache.commons.exec.ExecuteWatchdog
 import org.apache.commons.exec.PumpStreamHandler
+import org.apache.commons.exec.environment.EnvironmentUtils
 import org.mider.produce.core.Configuration
 import java.io.ByteArrayOutputStream
 import java.nio.charset.Charset
@@ -20,6 +21,11 @@ suspend fun String.matchRegex(reg: Regex, block: suspend (String) -> Unit) {
 }
 
 fun String.execute(config: Configuration, charset: Charset = Charset.forName("utf-8")): Pair<String, String> {
+
+    // 设置环境变量
+    val envMap = EnvironmentUtils.getProcEnvironment()
+    envMap.putAll(envMap)
+
     //接收正常结果流
     val outputStream = ByteArrayOutputStream()
     //接收异常结果流

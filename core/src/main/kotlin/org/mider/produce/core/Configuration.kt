@@ -45,6 +45,9 @@ data class Configuration (
     var sinsyClientConnectTimeoutMillis: Long = 5 * 60_000L,
     var sinsyClientSocketTimeoutMillis: Long  = 5 * 60_000L,
 
+    // 环境变量表
+    var envMap: Map<String, String> = emptyMap(),
+
     var sinsyLink: String = "http://sinsy.sp.nitech.ac.jp",
     var miderCodeFormatName: String = "midercode",
     var selfMockeryTime: Long = 7*1000L,

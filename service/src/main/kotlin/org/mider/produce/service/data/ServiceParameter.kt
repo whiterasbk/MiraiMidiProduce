@@ -16,6 +16,7 @@ data class ServiceParameter(
     var formatMode: String = "internal->java-lame",
     var macroUseStrictMode: Boolean = true,
     var isBlankReplaceWith0: Boolean = false,
+    var envMap: Map<String, String> = emptyMap(),
     var quality: Int = 64,
 ) {
     fun copy(coreCfg: Configuration) {
@@ -29,6 +30,7 @@ data class ServiceParameter(
         coreCfg.formatMode = formatMode
         coreCfg.macroUseStrictMode = macroUseStrictMode
         coreCfg.isBlankReplaceWith0 = isBlankReplaceWith0
+        coreCfg.envMap = envMap
         coreCfg.quality = quality
     }
 }

@@ -77,6 +77,8 @@ object BotConfiguration : AutoSavePluginConfig("config") {
     val quality by value(64)
     @ValueDescription("超过这个大小则自动改为文件上传")
     val uploadSize by value(1153433L)
+    @ValueDescription("环境变量表")
+    val envs by value(emptyMap<String, String>())
     @ValueDescription("帮助信息 (更新版本时记得要删掉这一行)")
     val help by value("https://github.com/whiterasbk/MiraiMidiProduce/blob/master/README.md")
 
@@ -89,6 +91,8 @@ object BotConfiguration : AutoSavePluginConfig("config") {
         coreCfg.sinsyClientRequestTimeoutMillis = sinsyClientRequestTimeoutMillis
         coreCfg.sinsyClientConnectTimeoutMillis = sinsyClientConnectTimeoutMillis
         coreCfg.sinsyClientSocketTimeoutMillis = sinsyClientSocketTimeoutMillis
+
+        coreCfg.envMap = envs
 
         coreCfg.miderCodeFormatName = miderCodeFormatName
         coreCfg.selfMockeryTime = selfMockeryTime
