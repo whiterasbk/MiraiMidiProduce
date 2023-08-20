@@ -136,3 +136,7 @@ service/src/test/resources/generated
 service/src/test/resources/tmp
 
 github-package-token
+
+core/src/test/resources/
+bot/src/test/resources/
+service/src/test/resources/

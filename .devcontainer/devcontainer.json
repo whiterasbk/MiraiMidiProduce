@@ -14,8 +14,8 @@
 		"ghcr.io/devcontainers-contrib/features/kotlin-sdkman:2": {},
 		"ghcr.io/mikaello/devcontainer-features/kotlinc:1": {},
 		"ghcr.io/devcontainers/features/sshd:1": {
-        		"version": "latest"
-    		}
+			"version": "latest"
+    	}
 	}
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
