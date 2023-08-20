@@ -1,0 +1,78 @@
+
+#define symbols
+: as operator with note/chord : note
+- as operator with note -
+b as operator with b note
+c as letter
+1 as integer
+#define symbols
+
+var Am = >Avvvv+>
+var Amaj = Am
+var arr = []
+
+class note {
+   var duration = 1
+   var pitch = 7
+   var octave = 4
+   fun len() {
+        return 1
+   }
+}
+
+repeat 5 {
+    >ABCDEFG>
+}
+
+fun (note: note)>v> {
+   var n = note.clone()
+   return n
+}
+
+fun (note: note1)>>(char: note2) {
+    return note2
+}
+
+fun (note: note)>*>(times: int): unit {
+    note.duration *= int
+}
+
+fun (note: note1)>:>(note: note2): chord {
+    // stack: pop note1, pop note2 按访问顺序
+    // 如果在代码里访问了哪个变量就pop哪个
+    var chord: chord = chord(note1, note2)
+    // return会push
+    return chord
+}
+
+if condition {
+
+}
+
+for ,, {
+
+}
+
+while {
+
+}
+
+when {
+
+}
+
+var tarcks =
+>  abce   >
+>  abce   >
+>  abce   >
+
+var notes =
+>  abce   > +
+>  abce   > +
+>  abce   >
+
+> Am Bm Cm Am7 Bm6 Am7Bm6 A+++B--c++...
+  (Am)(Bm)(C):A. Aq[app]#B#C abacde#f^
+  KA["sas", 1] [your lyric is here] 0 Ooo+
+  | ok | A |
+ >
