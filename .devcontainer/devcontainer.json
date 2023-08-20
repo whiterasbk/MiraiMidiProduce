@@ -6,16 +6,11 @@
 	"image": "mcr.microsoft.com/devcontainers/java:1-11-buster",
 
 	"features": {
-		"ghcr.io/devcontainers/features/java:1": {
-			"version": "none",
-			"installMaven": "false",
-			"installGradle": "true"
-		},
+		"ghcr.io/devcontainers/features/java:1": {},
 		"ghcr.io/devcontainers-contrib/features/kotlin-sdkman:2": {},
 		"ghcr.io/mikaello/devcontainer-features/kotlinc:1": {},
-		"ghcr.io/devcontainers/features/sshd:1": {
-			"version": "latest"
-    	}
+		"ghcr.io/devcontainers/features/sshd:1": {},
+		"ghcr.io/devcontainers-contrib/features/ffmpeg-apt-get:1": {}
 	}
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
