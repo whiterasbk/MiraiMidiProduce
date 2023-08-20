@@ -25,13 +25,24 @@ subprojects {
         maven {
             url = uri("https://maven.pkg.github.com/mzdluo123/silk4j")
             credentials {
+
                 val file = File(rootDir.absoluteFile, "github-package-token")
 
-                if (!file.exists()) throw Exception("please provide github-package-token with token,name inside in root path")
+                if (!file.exists()) {
 
-                val texts = file.readText().split(",")
-                username = texts[0].trim() // 填写用户名
-                password = texts[1].trim() // 填写 token
+                    val env_token: String? = System.getenv("GITHUB_TOKEN")
+                    val env_user: String? = System.getenv("GITHUB_USER")
+
+                    if (env_user == null || env_token == null)
+                        throw Exception("please provide github-package-token with token,name inside in root path")
+                    username = env_user
+                    password = env_token
+                    logger.log(LogLevel.INFO, "file github-package-token not found, found env token.")
+                } else {
+                    val texts = file.readText().split(",")
+                    username = texts[0].trim() // 填写用户名
+                    password = texts[1].trim() // 填写 token
+                }
             }
         }
     }
