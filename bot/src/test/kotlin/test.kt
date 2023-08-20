@@ -1,18 +1,13 @@
 package bot.music.whiter
 
-import io.ktor.client.*
-import io.ktor.client.engine.okhttp.*
-import io.ktor.client.request.*
 import whiter.music.mider.bpm2tempo
-import whiter.music.mider.code.produceCore
-import whiter.music.mider.dsl.Dsl2MusicXml
-import whiter.music.mider.dsl.MiderDSL
-import whiter.music.mider.dsl.playDslInstance
-import java.io.File
-import java.io.InputStream
+import whiter.music.mider.dsl.play
 
 
-suspend fun main(args: Array<String>) {
+suspend fun main() {
+
+
+
 
 //        val k =
 //        val kj = k.find("20220814162448_9636.wav\">wav</a>, <a target=\"_top\" href=\"./")

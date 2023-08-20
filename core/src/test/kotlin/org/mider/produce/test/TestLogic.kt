@@ -19,7 +19,7 @@ class TestLogic {
         LyricInception.replace = { it.toPinyin() }
 
         val code = """
-
+     
 >g;sing:cn>
     5[起]1i.[来]7-[饥]2i-[寒]1i-[交]5-[迫]3-[滴]6+
     [奴]4[隶]0-5-[起]2i.[来]1i-[全]7-[世]6-[界]5-
