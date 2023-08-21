@@ -18,7 +18,8 @@
 			"extensions": [
 				"GitHub.github-vscode-theme",
 				"GitHub.vscode-pull-request-github",
-				"vscjava.vscode-gradle"
+				"vscjava.vscode-gradle",
+				"mathiasfrohlich.Kotlin"
 			]
 		}
 	}
