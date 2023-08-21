@@ -8,8 +8,8 @@ import io.ktor.server.netty.*
 import org.mider.produce.service.plugins.configureRouting
 import org.slf4j.LoggerFactory
 
-const val defaultPort = 8080
-const val defaultHost = "127.0.0.1"
+const val DEFAULT_PORT = 8080
+const val DEFAULT_HOST = "127.0.0.1"
 
 fun main() {
 
@@ -25,8 +25,8 @@ fun main() {
         val provideHost = config.propertyOrNull("service.deployment.host")?.getString()
 
         connector {
-            port = providePort ?: defaultPort
-            host = provideHost ?: defaultHost
+            port = providePort ?: DEFAULT_PORT
+            host = provideHost ?: DEFAULT_HOST
         }
     }).start(true)
 }
