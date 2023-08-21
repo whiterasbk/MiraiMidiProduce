@@ -19,7 +19,12 @@
 				"GitHub.github-vscode-theme",
 				"GitHub.vscode-pull-request-github",
 				"vscjava.vscode-gradle",
-				"mathiasfrohlich.Kotlin"
+				"mathiasfrohlich.Kotlin",
+				"formulahendry.auto-close-tag",
+				"almenon.arepl",
+				"fwcd.kotlin",
+				"ritwickdey.LiveServer",
+				"Tyriar.lorem-ipsum"
 			]
 		}
 	}
