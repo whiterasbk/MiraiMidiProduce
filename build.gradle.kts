@@ -30,13 +30,13 @@ subprojects {
 
                 if (!file.exists()) {
 
-                    val env_token: String? = System.getenv("GITHUB_TOKEN")
-                    val env_user: String? = System.getenv("GITHUB_USER")
+                    val envToken: String? = System.getenv("GITHUB_TOKEN")
+                    val envUser: String? = System.getenv("GITHUB_USER")
 
-                    if (env_user == null || env_token == null)
+                    if (envUser == null || envToken == null)
                         throw Exception("please provide github-package-token with token,name inside in root path")
-                    username = env_user
-                    password = env_token
+                    username = envUser
+                    password = envToken
                     logger.log(LogLevel.INFO, "file github-package-token not found, found env token.")
                 } else {
                     val texts = file.readText().split(",")
