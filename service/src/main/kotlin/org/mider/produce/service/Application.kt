@@ -1,12 +1,15 @@
 package org.mider.produce.service
 
 import com.typesafe.config.ConfigFactory
+import io.ktor.http.*
 import io.ktor.server.config.*
 import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import org.mider.produce.service.plugins.configureRouting
 import org.slf4j.LoggerFactory
 
+const val defaultPort = 8080
+const val defaultHost = "127.0.0.1"
 
 fun main() {
 
@@ -22,8 +25,8 @@ fun main() {
         val provideHost = config.propertyOrNull("service.deployment.host")?.getString()
 
         connector {
-            port = providePort ?: 8080
-            host = provideHost ?: "127.0.0.1"
+            port = providePort ?: defaultPort
+            host = provideHost ?: defaultHost
         }
     }).start(true)
 }
