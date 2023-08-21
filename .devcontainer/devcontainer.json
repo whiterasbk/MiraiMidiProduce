@@ -11,6 +11,16 @@
 		"ghcr.io/mikaello/devcontainer-features/kotlinc:1": {},
 		"ghcr.io/devcontainers/features/sshd:1": {},
 		"ghcr.io/devcontainers-contrib/features/ffmpeg-apt-get:1": {}
+	},
+
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"GitHub.github-vscode-theme",
+				"GitHub.vscode-pull-request-github",
+				"vscjava.vscode-gradle"
+			]
+		}
 	}
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
