@@ -34,7 +34,7 @@ subprojects {
                     val envUser: String? = System.getenv("GITHUB_USER")
 
                     if (envUser == null || envToken == null)
-                        throw Exception("please provide github-package-token with token,name inside in root path")
+                        throw IllegalArgumentException("please provide github-package-token with token,name inside in root path")
                     username = envUser
                     password = envToken
                     logger.log(LogLevel.INFO, "file github-package-token not found, found env token.")
