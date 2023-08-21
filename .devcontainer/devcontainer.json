@@ -24,7 +24,8 @@
 				"almenon.arepl",
 				"fwcd.kotlin",
 				"ritwickdey.LiveServer",
-				"Tyriar.lorem-ipsum"
+				"Tyriar.lorem-ipsum",
+				"eamodio.gitlens"
 			]
 		}
 	}
