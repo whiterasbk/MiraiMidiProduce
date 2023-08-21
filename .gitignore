@@ -142,3 +142,4 @@ bot/src/test/resources/
 service/src/test/resources/
 
 .vscode
+.chat
