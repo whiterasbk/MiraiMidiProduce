@@ -143,3 +143,5 @@ service/src/test/resources/
 
 .vscode
 .chat
+
+service/generated
