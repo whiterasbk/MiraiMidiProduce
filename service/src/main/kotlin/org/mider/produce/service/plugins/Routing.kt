@@ -15,6 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.mider.produce.core.generate
 import org.mider.produce.core.utils.toPinyin
+import org.mider.produce.service.data.ResponseBody
 import org.mider.produce.service.data.ServiceParameter
 import org.mider.produce.service.utlis.getConfiguration
 import org.mider.produce.service.utlis.hash
@@ -49,10 +50,14 @@ fun Application.configureRouting() {
             val parameter = try {
                  call.receive<ServiceParameter>()
             } catch (e: BadRequestException) {
-                call.respond(mapOf(
-                    "status" to "failure",
-                    "message" to "midercode is required: $e"
-                ))
+                call.response.status(HttpStatusCode.BadRequest)
+                call.respond(
+                    ResponseBody(
+                        404,
+                        "failure",
+                        "midercode is required: $e"
+                    )
+                )
                 logger.error(e)
                 return@post
             }
@@ -80,28 +85,36 @@ fun Application.configureRouting() {
                         file.writeBytes(withContext(Dispatchers.IO) {
                             stream.readAllBytes()
                         })
-                        // logger.info("generate file at: ${file.absolutePath}")
+                         logger.info("generate file at: ${file.absolutePath}")
                     }
 
                     links += mapOf(name to "/generated/${file.name}")
                 }
 
-                call.respond(mapOf(
-                    "status" to "success",
-                    "type" to when {
-                        result.isSing -> "sing"
-                        result.isUploadMidi -> "midi"
-                        result.isRenderingNotation -> "notation"
-                        else -> "mp3"
-                    },
-                    "links" to links
-                ))
+                call.respond(
+                    ResponseBody(
+                        200,
+                        "success",
+                        "success generated midercode",
+                        when {
+                            result.isSing -> "sing"
+                            result.isUploadMidi -> "midi"
+                            result.isRenderingNotation -> "notation"
+                            else -> "mp3"
+                        },
+                        links
+                    )
+                )
 
             } catch (e: Throwable) {
-                call.respond(mapOf(
-                    "status" to "failure",
-                    "message" to e.message
-                ))
+                call.response.status(HttpStatusCode.BadGateway)
+                call.respond(
+                    ResponseBody(
+                        500,
+                        "failure",
+                        "server error: $e"
+                    )
+                )
                 logger.error(e)
             }
         }
@@ -110,10 +123,14 @@ fun Application.configureRouting() {
             val parameter = try {
                 call.receive<ServiceParameter>()
             } catch (e: BadRequestException) {
-                call.respond(mapOf(
-                    "status" to "failure",
-                    "message" to "midercode is required: $e"
-                ))
+                call.response.status(HttpStatusCode.BadRequest)
+                call.respond(
+                    ResponseBody(
+                        404,
+                        "failure",
+                        "midercode is required: $e"
+                    )
+                )
                 logger.error(e)
                 return@post
             }
@@ -148,20 +165,28 @@ fun Application.configureRouting() {
                     }
                 }
             } catch (e: Throwable) {
-                call.respond(mapOf(
-                    "status" to "failure",
-                    "message" to e.message
-                ))
+                call.response.status(HttpStatusCode.BadGateway)
+                call.respond(
+                    ResponseBody(
+                        500,
+                        "failure",
+                        "server error: $e"
+                    )
+                )
                 logger.error(e)
             }
         }
 
         get("/generated/{hash}") {
             val hash = call.parameters["hash"] ?: run {
-                call.respond(mapOf(
-                    "status" to "failure",
-                    "message" to "file name is require."
-                ))
+                call.response.status(HttpStatusCode.BadRequest)
+                call.respond(
+                    ResponseBody(
+                        404,
+                        "failure",
+                        "filename is required"
+                    )
+                )
                 logger.error("no hash provided.")
                 return@get
             }
@@ -169,10 +194,14 @@ fun Application.configureRouting() {
             try {
                 call.respondFile(workspace, hash)
             } catch (e: Throwable) {
-                call.respond(mapOf(
-                    "status" to "failure",
-                    "message" to e.message
-                ))
+                call.response.status(HttpStatusCode.BadGateway)
+                call.respond(
+                    ResponseBody(
+                        500,
+                        "failure",
+                        "server error: $e"
+                    )
+                )
                 logger.error(e)
             }
         }
