@@ -140,7 +140,7 @@ github-package-token
 core/src/test/resources/
 bot/src/test/resources/
 service/src/test/resources/
-
+generated 
 .vscode
 .chat
 
