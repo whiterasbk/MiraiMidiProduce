@@ -353,6 +353,71 @@ mider code 中宏的本质是对某段序列或其中的字母或数字的重复
 
 可以通过安装 `timidity` 或 `Muse Score` 来实现
 
+## 命令行工具
+`mider produce` 工程提供了一个简单易用的命令行工具以在 `mirai` 环境之外使用 `midercode`, 下载地址位于 `release` 下的 `cl-version.jar`
+
+运行此工具需要的配置:
+- jdk11 或更高
+
+#### 使用方法
+
+1. 交互模式
+    ```bash
+   java -jar cl-version.jar 
+   ```
+    进入交互模式
+   ```bash
+   >g>
+   ```
+   此时输入 midercode 即可实时解析并播放
+   ```bash
+   >g> aaaaa
+   >g> 123
+   ```
+   要更换轨道设置, 只需要输入  `>settings>` 即可切换轨道设置
+    ```bash
+    >g> >g;4x> 
+    >g;4x> 1
+    ```
+2. 播放 `midercode` 
+    ```bash 
+   java -jar cl-version.jar file.midercode 
+   ```
+3. 转换 `midercode`, 目前只支持 `mp3` 格式
+    ```bash
+   java -jar cl-cersion.jar file.midercode -o file.mp3 
+   ```
+    访问 `sinsy` 时可以指定 `-proxy` 参数以增快访问速度
+
+## 服务端
+`release` 下的 `server-version.jar` 是服务端程序, 通过 `java -jar server-version.jar` 启动以后可以通过 `http` 接口访问 生成 `midercode` 的功能
+
+以下是接口使用方式
+
+```http request
+POST localhost:8080/api
+Content-Type: application/json
+
+{
+  "midercode": ">g>1155665 4433221"
+}
+```
+返回 
+```json
+{
+  "status": "success",
+  "type": "mp3",
+  "links": [
+    {
+      "stream": "/generated/3680d25dc5832bd2652a366c6cb23e3a7135ba5932b5c98335a5ec77b9342f29-1.mp3"
+    }
+  ]
+}
+```
+其中 `stream` 即是生成的链接, 再通过 get 请求该链接即可得到流
+```http request
+GET localhost:8080/generated/3680d25dc5832bd2652a366c6cb23e3a7135ba5932b5c98335a5ec77b9342f29-1.mp3
+```
 
 ## release 中的多个发行包
 
