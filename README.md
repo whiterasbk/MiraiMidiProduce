@@ -8,7 +8,7 @@
 在线作曲插件
 
 ## 安装方法
-下载见 `release`
+下载见 `release` 下的 `bot-version.jar`
 1. 打开 `plugins` 文件夹
 2. 丢进去
 3. 关闭文件夹
