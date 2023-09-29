@@ -19,6 +19,9 @@ fun main(args: Array<String>) {
 
         val (cfg, tmp) = getConfiguration()
         cfg.info = {}
+        cfg.error = {
+            errorPrintln(it.toString())
+        }
 
         tmp.deleteOnExit()
 
@@ -26,50 +29,53 @@ fun main(args: Array<String>) {
             val scanner = Scanner(System.`in`)
             var currentTrackHead = ">g>"
             var proxy: String? = null
-            val helpMessage = "[mider-info] enter exit to quit"
-            while (true) {
-                print("$currentTrackHead ")
-                val line = scanner.nextLine().trim()
-                when {
-                    line == "exit" -> exitProcess(0)
-                    line == "help" -> print("$helpMessage\n")
-                    line == "" -> continue
-                    line matches cmdRegex -> {
-                        currentTrackHead = line
-                    }
-                    line.startsWith("set ") -> {
-                        val attr = line.removePrefix("set ").split("=")
-                        if (attr.size == 2 && attr.first() == "proxy") {
-                            proxy = attr[1]
-                        } else print("[mider-error] wrongly setting attribute")
-                    }
+            val helpMessage = "[mider-info] enter exit to quit, stop to stop current midi sequencer"
+            val sequencer = MidiSystem.getSequencer()
 
-                    else -> {
-                        try {
-                            val (result, stream) = cfg.generate(
-                                code = currentTrackHead + line,
-                                sinsyProxy = proxy
-                            )
+            sequencer.use { seq ->
+                while (true) {
+                    print("$currentTrackHead ")
+                    val line = scanner.nextLine().trim()
+                    when {
+                        line == "exit" -> exitProcess(0)
+                        line == "help" -> infoPrint("$helpMessage\n")
+                        line == "stop" -> seq.stop()
+                        line == "" -> continue
+                        line matches cmdRegex -> {
+                            currentTrackHead = line
+                        }
+                        line.startsWith("set ") -> {
+                            val attr = line.removePrefix("set ").split("=")
+                            if (attr.size == 2 && attr.first() == "proxy") {
+                                proxy = attr[1]
+                            } else errorPrintln("[mider-error] wrongly setting attribute")
+                        }
 
-                            when {
-                                result.isRenderingNotation -> {
-                                    print("[mider-error] yet supported")
+                        else -> {
+                            try {
+                                val (result, stream) = cfg.generate(
+                                    code = currentTrackHead + line,
+                                    sinsyProxy = proxy
+                                )
+
+                                when {
+                                    result.isRenderingNotation -> {
+                                        errorPrintln("[mider-error] yet supported")
+                                    }
+
+                                    result.isSing -> stream.first().use {
+                                        playWav(it.readAllBytes())
+                                    }
+
+                                    else -> stream.first().use {
+                                        seq.setSequence(it)
+                                        seq.open()
+                                        seq.start()
+                                    }
                                 }
-
-                                result.isSing -> stream.first().use {
-                                    playWav(it.readAllBytes())
-                                }
-
-                                else -> stream.first().use {
-                                    val sequencer = MidiSystem.getSequencer()
-                                    sequencer.setSequence(it)
-                                    sequencer.open()
-                                    sequencer.start()
-                                    delay(sequencer.sequence.microsecondLength / 1000 + 500)
-                                }
+                            } catch (e: Throwable) {
+                                errorPrintln("[mider-error] $e")
                             }
-                        } catch (e: Throwable) {
-                            println("[mider-error] $e")
                         }
                     }
                 }

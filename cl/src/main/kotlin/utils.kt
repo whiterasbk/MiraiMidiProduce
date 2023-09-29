@@ -32,7 +32,7 @@ fun getConfiguration(): Pair<Configuration, File> {
         }
     } ?: File(workspaceName).apply {
         if (exists()) {
-            if (listFiles() != null && listFiles().isNotEmpty()) error("$this is not empty!")
+            if (listFiles() != null && listFiles().isNotEmpty()) error("${this.absolutePath} is not empty! consider delete it or point workspace to a empty folder by setting MiderTemp env")
         } else mkdir()
     }
 
@@ -126,3 +126,14 @@ fun playWav(wavData: ByteArray) {
     sourceDataLine.close()
     audioInputStream.close()
 }
+
+fun errorPrint(msg: String) {
+    print("\u001b[1;31m$msg\u001B[0m")
+}
+fun errorPrintln(msg: String) = errorPrint("$msg\n")
+
+fun infoPrint(msg: String) {
+    print("\u001b[1;33m$msg\u001B[0m")
+}
+
+fun infoPrintln(msg: String) = infoPrint("$msg\n")
