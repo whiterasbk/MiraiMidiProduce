@@ -394,7 +394,7 @@ mider code 中宏的本质是对某段序列或其中的字母或数字的重复
 
 以下是接口使用方式
 
-```http request
+```text
 POST localhost:8080/api
 Content-Type: application/json
 
@@ -415,7 +415,7 @@ Content-Type: application/json
 }
 ```
 其中 `stream` 即是生成的链接, 再通过 get 请求该链接即可得到流
-```http request
+```text
 GET localhost:8080/generated/3680d25dc5832bd2652a366c6cb23e3a7135ba5932b5c98335a5ec77b9342f29-1.mp3
 ```
 
