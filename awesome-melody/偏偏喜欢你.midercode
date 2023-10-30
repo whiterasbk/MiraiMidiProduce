@@ -1,9 +1,9 @@
->g;2x;i=musicbox> 
+>78b;2x;i=musicbox;3;100dB> 
 A↑ #F↑ D↑+.:D↑↑ E↑:E↑↑ D↑:#F:D↑↑ ~ E↑↑ D↑↑ D↑:B↑ C↑:A↑ B:G↑  B+.:G↑ B:G↑ A↑ G+.:E↑ D↑ D↑↑ B↑ A↑ B↑ B:G↑ G↑-E↑- D↑-^ B↑-v G+ 
 DbG+. BAGE-D-bD+. ED+ 
 EDD↑+. G↑ E↑D↑ B-A-G A++.
-A#FD↑+.E↑D↑+ E↑D↑ B.A-G+
-GA-G-E+. DD↑BAE D+. 
+A#FD↑+.E↑D↑+ E↑D↑ B.A-G++
+GA-G-E+. DD↑BAE D++. 
 DbG+. BAG E-D-b D+. ED+ 
 EDD↑+. G↑ E↑D↑ B-A-G A++&A
 ABC↑ D↑+. E↑D↑+ E↑D↑ B.A- G++ 
@@ -12,7 +12,7 @@ GG #D+.:#F #F #F+ AG #FE E++&E
 B A+. E A+ D↑D↑-E↑- D++.:B 
 BB E+.:A E:A A+:D↑ AG D+.:G AB++ 
 E↑E↑-D↑- C↑B A+. G G++ 
-B+:D↑:G↑↟ 
+B+:D↑:G↑ (# ↟)
 DbG+. BAG E-D-b D+.ED+ 
 ED D↑+. G↑E↑D↑ B-A-G A++&A
 ABC↑ D↑+. E↑D↑+ E↑D↑ B.A- G++ 
@@ -21,7 +21,7 @@ GG #D+.:#F #F #F+ AG #FE E++&E
 B A+. EA+ D↑D↑-E↑- D++.:B 
 BB E+.:A E:A  A+:D↑  AG D+.:G A B++ 
 E↑E↑-D↑- C↑B A+. G G++ 
-B+:D↑:G↑↟ 
+B+:D↑:G↑(# ↟)
 Db G+. BAG E-D-b D+.ED+ 
 ED D↑+. G↑ E↑D↑ B-A-G A++&A 
 ABC↑ D↑+. E↑ D↑+ E↑D↑ B.A-G++ 
@@ -29,5 +29,28 @@ G#F E+. D D↑BAE G++&G
 ABC↑ D↑+. E↑ D↑+ E↑ D↑ B.A- G++ 
 G#F E+. DD↑BAG G+++ 
 G-B-D↑-#F↑- G↑- B↑- D↑↑- #F↑↑- 
-B↑+.:D↑↑:G↑↑↟ 
+B↑+.:D↑↑:G↑↑(# ↟)
 B-A- B++&B+++
+
+>g;2x;3;i=musicbox;90dB>
+oo b↓ #f b #f  b2:b↓ ~  oo e↓ b↓ e d↓+ b↓ #c↓+ c↓ a↓ c+ d↓ a↓ d+ g↓ g-e- d-e- b↓- a↓- g↓+
+oo g↓dbg dgbg d↓a↓d#f ad 
+#fd e↓ b↓ eg bgeb↓ a↓ eae d↓ a↓ 
+d#f b↓#faDEDaD e↓b↓eg bg 
+eb↓ cgC+ a↓ egC | d↓ a↓ d a↓ de
+#f+ g↓dbg dgbg d↓a↓d#f ad
+#fd e↓b↓eg bgbe a↓eae d↓ 
+a↓ d#f b↓#faDEDaD e↓b↓eg bg 
+eb↓ c↓g↓ce d↓a↓d#f g↓dga D++ 
+b↓#fb#f b↓#fb#f e↓b↓eb↓ d↓b↓gd
+c↓g↓ce c↓a↓d#f g↓dgd bdgd #f↓c#fa b↓#fa#f e↓b↓gb↓ e↓b↓eg
+b↓eCe d↓d#fa g↓dab g++ 
+g↓dbg dgbg d↓a↓d#f ad#fd e↓b↓eg bgbe a↓eae d↓a↓d#f
+b↓#faDEDaD e↓b↓eg bgeb↓ c↓g↓ce d↓a↓d#f g↓dgb D++
+b↓#fb#f b↓#fb#f e↓b↓eb↓ d↓b↓gd 
+c↓g↓ce c↓a↓d#f g↓dgd bdgd #f↓c#fa b↓#fa#f e↓b↓gb↓ e↓b↓eg
+a↓eCe d↓d#fa g↓dab g++
+g↓dbg dgbg d↓a↓d#f ad#fd e↓b↓eg bgbe a↓eae d↓a↓d#f
+b↓#faDEDaD e↓b↓eg bgeb↓ c↓g↓ce d↓a↓d#f g↓dg b&b++ 
+#f+++:b:D e+++:g:b
+a↓e a+ d++:#f:a g↓bD#F g↓++++
