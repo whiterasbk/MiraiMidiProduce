@@ -1,0 +1,16 @@
+service {
+    deployment {
+        port = 5827
+    }
+
+    produce {
+        debug = true
+        commandTimeout = 60000
+        ffmpegConvertCommand = "ffmpeg -i {{input}} -acodec libmp3lame -ab 256k {{output}}"
+        timidityConvertCommand = "timidity {{input}} -Ow -o {{output}}"
+        mscoreConvertMidi2Mp3Command = "musescore {{input}} -o {{output}}"
+        mscoreConvertMidi2MSCZCommand = "musescore {{input}} -o {{output}}"
+        mscoreConvertMSCZ2PDFCommand = "musescore {{input}} -o {{output}}"
+        mscoreConvertMSCZ2PNGSCommand = "musescore {{input}} -o {{output}} --trim-image 120"
+    }
+}
