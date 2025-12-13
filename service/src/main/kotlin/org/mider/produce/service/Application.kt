@@ -7,15 +7,28 @@ import io.ktor.server.engine.*
 import io.ktor.server.netty.*
 import org.mider.produce.service.plugins.configureRouting
 import org.slf4j.LoggerFactory
+import java.io.File
 
 const val DEFAULT_PORT = 8080
 const val DEFAULT_HOST = "127.0.0.1"
 
-fun main() {
+fun main(args: Array<String>) {
+
+    val configPath = args.firstOrNull()
+        ?: System.getenv("APP_CONFIG")
+        ?: System.getProperty("config.file")
+        ?: "application.conf"
 
     embeddedServer(Netty, environment = applicationEngineEnvironment {
         log = LoggerFactory.getLogger("produce.service.ktor.application")
-        config = HoconApplicationConfig(ConfigFactory.load())
+        config = HoconApplicationConfig(try {
+            ConfigFactory.parseFile(File(configPath))
+                .withFallback(ConfigFactory.load())
+                .resolve()
+        } catch (e: Exception) {
+            log.warn("Warning: Could not load config from $configPath, msg: ${e.message}, using default")
+            ConfigFactory.load()
+        })
 
         module {
             configureRouting()
