@@ -1,0 +1,79 @@
+name: Service Docker Image
+
+on:
+  push:
+    branches:
+      - dev  # 推送到 dev 分支时触发
+#  release:
+#    types: [published] # 发布新的 Release 时触发
+
+env:
+  # Gradle 缓存 Key
+  GRADLE_CACHE_KEY: ${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    # 定义环境权限，用于 Docker Login 和 GITHUB_TOKEN
+    permissions:
+      contents: read
+      packages: write # 如果您要推送到 GitHub Packages，需要这个权限
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          # 必须拉取子模块
+          submodules: 'recursive'
+
+      - name: Setup Java/Kotlin (Gradle Requirement)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17' # 根据您的项目需要调整 Java 版本
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Get Version and Define Tag
+        id: tag
+        run: |
+          # 1. 从项目根目录的 build.gradle 文件中获取版本号
+          # 使用 grep 和 sed 提取 version = "..." 中的值
+          VERSION=$(grep -E '^\s*version\s*=\s*".*"' build.gradle | sed -E 's/.*"(.+)".*/\1/')
+          
+          # 2. 根据触发条件设置最终的 Docker Tag
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            # Release 触发时，使用 Release Tag (例如 v1.0.0)
+            DOCKER_TAG="${{ github.event.release.tag_name }}"
+          elif [[ "${{ github.ref_name }}" == "dev" ]]; then
+            # dev 分支 push 时，使用版本号 + commit SHA 前 7 位
+            SHORT_SHA=$(echo $GITHUB_SHA | cut -c 1-7)
+            DOCKER_TAG="${VERSION}-dev-${SHORT_SHA}"
+          else
+            # 默认使用项目版本号
+            DOCKER_TAG="${VERSION}"
+          fi
+
+          echo "Detected Project Version: $VERSION"
+          echo "Final Docker Tag: $DOCKER_TAG"
+          echo "tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+
+      # --- Docker Hub 登录 ---
+      - name: Docker Login
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }} # GitHub Secrets 存储的 Docker Hub 用户名
+          password: ${{ secrets.DOCKER_PASSWORD }} # GitHub Secrets 存储的 Docker Hub 密码或 Access Token
+
+      # --- 执行构建和推送脚本 ---
+      - name: Execute Build and Push Script
+        env:
+          # 将当前分支名/tag名传入脚本，用于 latest 标签的判断
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+          # 用于 Gradle build 时的 GITHUB_USER/GITHUB_TOKEN 认证 (如果您需要拉取私有依赖)
+          GITHUB_USER: ${{ secrets.GITHUB_USER }}
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGE_TOKEN }} # 专用 token 用于 Gradle 认证
+
+        run: |
+          # 运行 Bash 脚本，并将 DOCKER_TAG 作为参数 $1 传入
+          ./build-docker-image.sh ${{ steps.tag.outputs.tag }}

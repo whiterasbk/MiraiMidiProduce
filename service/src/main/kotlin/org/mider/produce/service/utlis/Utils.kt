@@ -58,6 +58,7 @@ fun Configuration.setupViaEnvironment(env: ApplicationEnvironment) {
     env.stringOrDefault("mscoreConvertMidi2MSCZCommand") { mscoreConvertMidi2MSCZCommand = it }
     env.stringOrDefault("mscoreConvertMSCZ2PDFCommand") { mscoreConvertMSCZ2PDFCommand = it }
     env.stringOrDefault("mscoreConvertMSCZ2PNGSCommand") { mscoreConvertMSCZ2PNGSCommand = it }
+    env.stringOrDefault("sinsyLink") { sinsyLink = it }
     env.booleanOrDefault("debug") { debug = it }
 }
 
