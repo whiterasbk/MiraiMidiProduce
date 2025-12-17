@@ -9,7 +9,6 @@ on:
   #   types: [published]
 
 env:
-  DOCKER_USER: ${{ github.repository_owner }}
   IMAGE_NAME: miderproduce-service
   JAVA_VERSION: '17'
   JAVA_DISTRIBUTION: 'temurin'
@@ -181,7 +180,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}
+          images: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}
           tags: |
             type=raw,value=${{ needs.extract-version.outputs.docker-tag }}
             type=raw,value=latest,enable=${{ github.ref_name == 'dev' }}
@@ -204,7 +203,7 @@ jobs:
         run: |
           echo "🎉 Docker image build and push completed!"
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-          echo "📦 Repository: ${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}"
+          echo "📦 Repository: ${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}"
           echo "🏷️  Tags pushed:"
           echo "${{ steps.meta.outputs.tags }}" | sed 's/^/    - /'
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
@@ -227,7 +226,7 @@ jobs:
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| 📦 Project Version | \`${{ needs.extract-version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| 🏷️ Docker Tag | \`${{ needs.extract-version.outputs.docker-tag }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🐳 Docker Image | \`${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🐳 Docker Image | \`${{ secrets.DOCKER_USERNAME }}/${{ env.IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| 🔀 Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| 📝 Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
           echo "| 👤 Triggered By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
