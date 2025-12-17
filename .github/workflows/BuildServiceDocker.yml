@@ -130,7 +130,7 @@ jobs:
           
           # 复制配置文件
           if [ -f "./service/src/main/resources/application.conf.default" ]; then
-            cp ./service/src/main/resources/application.conf.default ./application.conf.default
+            cp ./service/src/main/resources/application.conf.default ./application.conf
             echo "✅ Copied application.conf.default"
           else
             echo "⚠️  application.conf.default not found, skipping..."
@@ -145,7 +145,7 @@ jobs:
           path: |
             service.jar
             Dockerfile
-            application.conf.default
+            application.conf
           retention-days: 1
           if-no-files-found: error
 
