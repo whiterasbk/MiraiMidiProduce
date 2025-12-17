@@ -226,4 +226,21 @@ jobs:
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| 📦 Project Version | \`${{ needs.extract-version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| 🏷️ Docker Tag | \`${{ needs
+          echo "| 🏷️ Docker Tag | \`${{ needs.extract-version.outputs.docker-tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🐳 Docker Image | \`${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🔀 Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 📝 Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 👤 Triggered By | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🎯 Event Type | \`${{ github.event_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Job Status" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Extract Version | ${{ needs.extract-version.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build Jar | ${{ needs.build-jar.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Prepare Docker Context | ${{ needs.prepare-docker-context.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Build & Push Docker | ${{ needs.build-and-push-docker.result == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "🕐 Build completed at: \`$(date -u '+%Y-%m-%d %H:%M:%S UTC')\`" >> $GITHUB_STEP_SUMMARY
