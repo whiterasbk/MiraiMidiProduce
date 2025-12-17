@@ -1,6 +1,6 @@
 service {
     deployment {
-        host = 0.0.0.0
+        host = 0.0.0.0 # or else it wouldn't work
         port = 5827
     }
 
