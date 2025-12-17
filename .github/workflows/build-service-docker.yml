@@ -1,79 +1,230 @@
-name: Service Docker Image
+name: Service Docker Image Build & Push
 
 on:
   push:
     branches:
-      - dev  # 推送到 dev 分支时触发
-#  release:
-#    types: [published] # 发布新的 Release 时触发
+      - dev
+  # release:
+  #   types: [published]
 
 env:
-  # Gradle 缓存 Key
-  GRADLE_CACHE_KEY: ${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+  DOCKER_USER: ${{ github.repository_owner }}
+  IMAGE_NAME: miderproduce-service
+  JAVA_VERSION: '17'
+  JAVA_DISTRIBUTION: 'temurin'
 
 jobs:
-  build-and-push:
+  # ============================================
+  # Job 1: 版本信息提取
+  # ============================================
+  extract-version:
+    name: 📋 Extract Project Version
     runs-on: ubuntu-latest
-
-    # 定义环境权限，用于 Docker Login 和 GITHUB_TOKEN
-    permissions:
-      contents: read
-      packages: write # 如果您要推送到 GitHub Packages，需要这个权限
+    outputs:
+      version: ${{ steps.get-version.outputs.version }}
+      docker-tag: ${{ steps.get-version.outputs.docker-tag }}
 
     steps:
-      - name: Checkout Code
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 🔍 Parse Version from build.gradle.kts
+        id: get-version
+        run: |
+          VERSION=$(sed -n '/allprojects/,/}/p' build.gradle.kts | grep -E '^\s*version\s*=\s*".*"' | sed -E 's/.*"(.+)".*/\1/')
+          
+          if [ -z "$VERSION" ]; then
+            echo "❌ Failed to extract version from build.gradle.kts"
+            exit 1
+          fi
+          
+          # SHORT_SHA=$(echo $GITHUB_SHA | cut -c 1-7)
+          # DOCKER_TAG="${VERSION}-dev-${SHORT_SHA}"
+          DOCKER_TAG="${VERSION}"
+          
+          echo "📦 Detected Project Version: $VERSION"
+          echo "🏷️  Docker Tag: $DOCKER_TAG"
+          
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "docker-tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+
+  # ============================================
+  # Job 2: Gradle 构建 Fat Jar
+  # ============================================
+  build-jar:
+    name: 🔨 Build Fat Jar with Gradle
+    runs-on: ubuntu-latest
+    needs: extract-version
+
+    steps:
+      - name: 📥 Checkout Repository with Submodules
         uses: actions/checkout@v4
         with:
-          # 必须拉取子模块
           submodules: 'recursive'
 
-      - name: Setup Java/Kotlin (Gradle Requirement)
+      - name: ☕ Setup Java ${{ env.JAVA_VERSION }}
         uses: actions/setup-java@v4
         with:
-          java-version: '17' # 根据您的项目需要调整 Java 版本
-          distribution: 'temurin'
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: ${{ env.JAVA_DISTRIBUTION }}
           cache: 'gradle'
 
-      - name: Get Version and Define Tag
-        id: tag
+      - name: 🔧 Grant Execute Permission to Gradlew
+        run: chmod +x gradlew
+
+      - name: 🏗️ Build Fat Jar (Skip Tests)
+        env:
+          GITHUB_USER: ${{ secrets.GITHUB_USER }}
+          GITHUB_TOKEN: ${{ secrets.GH_PACKAGE_TOKEN }}
         run: |
-          # 1. 从项目根目录的 build.gradle 文件中获取版本号
-          # 使用 grep 和 sed 提取 version = "..." 中的值
-          VERSION=$(grep -E '^\s*version\s*=\s*".*"' build.gradle | sed -E 's/.*"(.+)".*/\1/')
-          
-          # 2. 根据触发条件设置最终的 Docker Tag
-          if [[ "${{ github.event_name }}" == "release" ]]; then
-            # Release 触发时，使用 Release Tag (例如 v1.0.0)
-            DOCKER_TAG="${{ github.event.release.tag_name }}"
-          elif [[ "${{ github.ref_name }}" == "dev" ]]; then
-            # dev 分支 push 时，使用版本号 + commit SHA 前 7 位
-            SHORT_SHA=$(echo $GITHUB_SHA | cut -c 1-7)
-            DOCKER_TAG="${VERSION}-dev-${SHORT_SHA}"
-          else
-            # 默认使用项目版本号
-            DOCKER_TAG="${VERSION}"
+          echo "🚀 Starting Gradle build for service module..."
+          ./gradlew :service:buildFatJar -x test --no-daemon --stacktrace
+          echo "✅ Gradle build completed successfully"
+
+      - name: ✔️ Verify Fat Jar Exists
+        run: |
+          JAR_PATH="service/build/libs/service-all.jar"
+          if [ ! -f "$JAR_PATH" ]; then
+            echo "❌ Fat Jar not found at: $JAR_PATH"
+            exit 1
           fi
+          
+          JAR_SIZE=$(du -h "$JAR_PATH" | cut -f1)
+          echo "✅ Fat Jar found: $JAR_PATH (Size: $JAR_SIZE)"
 
-          echo "Detected Project Version: $VERSION"
-          echo "Final Docker Tag: $DOCKER_TAG"
-          echo "tag=$DOCKER_TAG" >> $GITHUB_OUTPUT
+      - name: 📤 Upload Fat Jar as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: service-fat-jar
+          path: service/build/libs/service-all.jar
+          retention-days: 1
+          if-no-files-found: error
 
-      # --- Docker Hub 登录 ---
-      - name: Docker Login
+  # ============================================
+  # Job 3: 准备 Docker 构建上下文
+  # ============================================
+  prepare-docker-context:
+    name: 📦 Prepare Docker Build Context
+    runs-on: ubuntu-latest
+    needs: build-jar
+
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📥 Download Fat Jar Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: service-fat-jar
+          path: ./artifacts
+
+      - name: 📋 Copy Files to Build Context
+        run: |
+          echo "📂 Preparing Docker build context..."
+          
+          # 复制 Fat Jar
+          cp ./artifacts/service-all.jar ./service.jar
+          echo "✅ Copied service.jar ($(du -h ./service.jar | cut -f1))"
+          
+          # 复制 Dockerfile
+          cp ./service/src/Dockerfile ./Dockerfile
+          echo "✅ Copied Dockerfile"
+          
+          # 复制配置文件
+          if [ -f "./service/src/main/resources/application.conf.default" ]; then
+            cp ./service/src/main/resources/application.conf.default ./application.conf.default
+            echo "✅ Copied application.conf.default"
+          else
+            echo "⚠️  application.conf.default not found, skipping..."
+          fi
+          
+          echo "📦 Build context prepared successfully"
+
+      - name: 📤 Upload Docker Context as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-build-context
+          path: |
+            service.jar
+            Dockerfile
+            application.conf.default
+          retention-days: 1
+          if-no-files-found: error
+
+  # ============================================
+  # Job 4: 构建并推送 Docker 镜像
+  # ============================================
+  build-and-push-docker:
+    name: 🐳 Build & Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [extract-version, prepare-docker-context]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 📥 Download Docker Build Context
+        uses: actions/download-artifact@v4
+        with:
+          name: docker-build-context
+          path: .
+
+      - name: 🔐 Login to Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_USERNAME }} # GitHub Secrets 存储的 Docker Hub 用户名
-          password: ${{ secrets.DOCKER_PASSWORD }} # GitHub Secrets 存储的 Docker Hub 密码或 Access Token
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # --- 执行构建和推送脚本 ---
-      - name: Execute Build and Push Script
-        env:
-          # 将当前分支名/tag名传入脚本，用于 latest 标签的判断
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-          # 用于 Gradle build 时的 GITHUB_USER/GITHUB_TOKEN 认证 (如果您需要拉取私有依赖)
-          GITHUB_USER: ${{ secrets.GITHUB_USER }}
-          GITHUB_TOKEN: ${{ secrets.GH_PACKAGE_TOKEN }} # 专用 token 用于 Gradle 认证
+      - name: 🔧 Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
+      - name: 🏷️ Generate Docker Metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=raw,value=${{ needs.extract-version.outputs.docker-tag }}
+            type=raw,value=latest,enable=${{ github.ref_name == 'dev' }}
+
+      - name: 🐳 Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            VCS_REF=${{ github.sha }}
+            VERSION=${{ needs.extract-version.outputs.version }}
+
+      - name: 📊 Output Image Information
         run: |
-          # 运行 Bash 脚本，并将 DOCKER_TAG 作为参数 $1 传入
-          ./build-docker-image.sh ${{ steps.tag.outputs.tag }}
+          echo "🎉 Docker image build and push completed!"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📦 Repository: ${{ env.DOCKER_USER }}/${{ env.IMAGE_NAME }}"
+          echo "🏷️  Tags pushed:"
+          echo "${{ steps.meta.outputs.tags }}" | sed 's/^/    - /'
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+  # ============================================
+  # Job 5: 构建总结（可选）
+  # ============================================
+  build-summary:
+    name: 📝 Build Summary
+    runs-on: ubuntu-latest
+    needs: [extract-version, build-jar, prepare-docker-context, build-and-push-docker]
+    if: always()
+
+    steps:
+      - name: 📊 Generate Build Summary
+        run: |
+          echo "# 🚀 Docker Image Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| 📦 Project Version | \`${{ needs.extract-version.outputs.version }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| 🏷️ Docker Tag | \`${{ needs
