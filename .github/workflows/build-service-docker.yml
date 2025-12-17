@@ -5,17 +5,6 @@ on:
     branches:
       - dev
   workflow_dispatch: # 添加手动触发
-    inputs:
-      docker-tag-suffix:
-        description: 'Docker tag suffix (optional, e.g., "hotfix")'
-        required: false
-        type: string
-        default: ''
-      skip-tests:
-        description: 'Skip tests during build'
-        required: false
-        type: boolean
-        default: true
   # release:
   #   types: [published]
 
@@ -49,15 +38,8 @@ jobs:
             echo "❌ Failed to extract version from build.gradle.kts"
             exit 1
           fi
-          
-          SUFFIX="${{ github.event.inputs.docker-tag-suffix }}"
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ] && [ -n "$SUFFIX" ]; then
-            DOCKER_TAG="${VERSION}-${SUFFIX}"
-          else
-            # SHORT_SHA=$(echo $GITHUB_SHA | cut -c 1-7)
-            # DOCKER_TAG="${VERSION}-dev-${SHORT_SHA}"
-            DOCKER_TAG="${VERSION}"
-          fi
+        
+          DOCKER_TAG="${VERSION}"
           
           echo "📦 Detected Project Version: $VERSION"
           echo "🏷️  Docker Tag: $DOCKER_TAG"
