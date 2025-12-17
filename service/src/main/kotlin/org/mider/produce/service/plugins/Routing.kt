@@ -11,16 +11,22 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.util.logging.*
+import io.ktor.util.pipeline.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import org.mider.produce.core.Configuration
 import org.mider.produce.core.generate
 import org.mider.produce.core.utils.toPinyin
 import org.mider.produce.service.data.ResponseBody
 import org.mider.produce.service.data.ServiceParameter
 import org.mider.produce.service.utlis.getConfiguration
 import org.mider.produce.service.utlis.hash
+import whiter.music.mider.code.ProduceCoreResult
 import whiter.music.mider.xml.LyricInception
 import java.io.File
+import java.io.InputStream
+import java.net.URLDecoder
+import java.util.Base64
 
 fun Application.configureRouting() {
 
@@ -35,179 +41,297 @@ fun Application.configureRouting() {
     val logger = log
     val (config, workspace) = getConfiguration(this)
 
-    workspace.listFiles { dir, _ ->
-        dir.delete()
-    }
+//    workspace.listFiles()?.forEach { file ->
+//        if (file.isFile) {
+//            file.delete()
+//        }
+//    }
 
-    // Starting point for a Ktor app:
     routing {
         get("/") {
             call.respondRedirect("static/index.html")
         }
 
         post("/api") {
-
-            val parameter = try {
-                 call.receive<ServiceParameter>()
-            } catch (e: BadRequestException) {
-                call.response.status(HttpStatusCode.BadRequest)
-                call.respond(
-                    ResponseBody(
-                        404,
-                        "failure",
-                        "midercode is required: $e"
-                    )
-                )
-                logger.error(e)
-                return@post
-            }
-
-            parameter.copy(config)
-
-            try {
-                val (result, streamList) = config.generate(parameter.midercode)
-
-                val links = mutableListOf<Map<String, String>>()
-
-                for ((index, streamItem) in streamList.withIndex()) {
-                    val (stream, name) = streamItem
-                    val ext = when {
-                        '.' in name -> name.split(".").last()
-                        else -> when {
-                            result.isUploadMidi -> "mid"
-                            result.isRenderingNotation -> "tmp"
-                            else -> "mp3"
-                        }
-                    }
-                    val fileName = parameter.midercode.hash()
-                    val file = File(workspace, "$fileName-${index + 1}.$ext")
-                    if (!file.exists() or !parameter.cache) {
-                        file.writeBytes(withContext(Dispatchers.IO) {
-                            stream.readAllBytes()
-                        })
-                         logger.info("generate file at: ${file.absolutePath}")
-                    }
-
-                    links += mapOf(name to "/generated/${file.name}")
-                }
-
-                call.respond(
-                    ResponseBody(
-                        200,
-                        "success",
-                        "success generated midercode",
-                        when {
-                            result.isSing -> "sing"
-                            result.isUploadMidi -> "midi"
-                            result.isRenderingNotation -> "notation"
-                            else -> "mp3"
-                        },
-                        links
-                    )
-                )
-
-            } catch (e: Throwable) {
-                call.response.status(HttpStatusCode.BadGateway)
-                call.respond(
-                    ResponseBody(
-                        500,
-                        "failure",
-                        "server error: $e"
-                    )
-                )
-                logger.error(e)
-            }
+            handleApiRequest(config, workspace, logger, isDirectApi = false)
         }
 
         post("/direct-api") {
-            val parameter = try {
-                call.receive<ServiceParameter>()
-            } catch (e: BadRequestException) {
-                call.response.status(HttpStatusCode.BadRequest)
-                call.respond(
-                    ResponseBody(
-                        404,
-                        "failure",
-                        "midercode is required: $e"
-                    )
-                )
-                logger.error(e)
-                return@post
-            }
+            handleApiRequest(config, workspace, logger, isDirectApi = true)
+        }
 
-            parameter.copy(config)
+        get("/m") {
+            handleMidercodeRequest(config, workspace, logger, defaultRaw = false)
+        }
 
-            try {
-
-                val (result, streamList) = config.generate(parameter.midercode)
-                val (stream, name) = streamList[0]
-                val contentType: ContentType = when {
-                    name.contains(".") -> name.split(".").last().let {
-                        when (it) {
-                            "png" -> ContentType.Image.PNG
-                            "mp3" -> ContentType.Audio.MPEG
-                            "mid" -> ContentType.Audio.Any
-                            "silk" -> ContentType.Audio.Any
-                            else -> ContentType.Any
-                        }
-                    }
-
-                    else -> when {
-                        result.isUploadMidi -> ContentType.Audio.Any
-                        result.isRenderingNotation -> ContentType.Any
-                        else -> ContentType.Audio.MPEG
-                    }
-                }
-
-                call.respondBytes(contentType = contentType) {
-                    withContext(Dispatchers.IO) {
-                        stream.readAllBytes()
-                    }
-                }
-            } catch (e: Throwable) {
-                call.response.status(HttpStatusCode.BadGateway)
-                call.respond(
-                    ResponseBody(
-                        500,
-                        "failure",
-                        "server error: $e"
-                    )
-                )
-                logger.error(e)
-            }
+        get("/md") {
+            handleMidercodeRequest(config, workspace, logger, defaultRaw = true)
         }
 
         get("/generated/{hash}") {
-            val hash = call.parameters["hash"] ?: run {
-                call.response.status(HttpStatusCode.BadRequest)
-                call.respond(
-                    ResponseBody(
-                        404,
-                        "failure",
-                        "filename is required"
-                    )
-                )
-                logger.error("no hash provided.")
-                return@get
-            }
-
-            try {
-                call.respondFile(workspace, hash)
-            } catch (e: Throwable) {
-                call.response.status(HttpStatusCode.BadGateway)
-                call.respond(
-                    ResponseBody(
-                        500,
-                        "failure",
-                        "server error: $e"
-                    )
-                )
-                logger.error(e)
-            }
+            handleFileRequest(workspace, logger)
         }
 
         static("/static") {
             resources("static")
         }
     }
+}
+
+// 提取通用的错误响应函数
+private suspend fun PipelineContext<Unit, ApplicationCall>.respondError(
+    statusCode: HttpStatusCode,
+    code: Int,
+    message: String,
+    logger: Logger,
+    error: Throwable? = null
+) {
+    call.response.status(statusCode)
+    call.respond(ResponseBody(code, "failure", message))
+    error?.let { logger.error(it) } ?: logger.error(message)
+}
+
+// 提取参数接收逻辑
+private suspend fun PipelineContext<Unit, ApplicationCall>.receiveParameter(
+    logger: Logger
+): ServiceParameter? {
+    return try {
+        call.receive<ServiceParameter>()
+    } catch (e: BadRequestException) {
+        respondError(
+            HttpStatusCode.BadRequest,
+            400,
+            "midercode is required: ${e.message}",
+            logger,
+            e
+        )
+        null
+    }
+}
+
+// 统一处理 API 请求
+private suspend fun PipelineContext<Unit, ApplicationCall>.handleApiRequest(
+    config: Configuration,
+    workspace: File,
+    logger: Logger,
+    isDirectApi: Boolean
+) {
+    val parameter = receiveParameter(logger) ?: return
+    _handleApiRequest(parameter, config, isDirectApi, logger, workspace)
+}
+
+private suspend fun PipelineContext<Unit, ApplicationCall>._handleApiRequest(
+    parameter: ServiceParameter,
+    config: Configuration,
+    isDirectApi: Boolean,
+    logger: Logger,
+    workspace: File
+) {
+    parameter.copy(config)
+
+    try {
+        val (result, streamList) = config.generate(parameter.midercode)
+
+        if (isDirectApi) {
+            handleDirectApiResponse(result, streamList, logger)
+        } else {
+            handleStandardApiResponse(result, streamList, parameter, workspace, logger)
+        }
+    } catch (e: Throwable) {
+        respondError(
+            HttpStatusCode.BadGateway,
+            500,
+            "server error: ${e.message}",
+            logger,
+            e
+        )
+    }
+}
+
+// 处理标准 API 响应
+private suspend fun PipelineContext<Unit, ApplicationCall>.handleStandardApiResponse(
+    result: ProduceCoreResult,
+    streamList: List<Pair<InputStream, String>>,
+    parameter: ServiceParameter,
+    workspace: File,
+    logger: Logger
+) {
+    val links = streamList.mapIndexed { index, (stream, name) ->
+        val ext = determineFileExtension(name, result)
+        val fileName = parameter.midercode.hash()
+        val file = File(workspace, "$fileName-${index + 1}.$ext")
+
+        if (!file.exists() || !parameter.cache) {
+            file.writeBytes(withContext(Dispatchers.IO) {
+                stream.readAllBytes()
+            })
+            logger.info("Generated file at: ${file.absolutePath}")
+        }
+
+        mapOf(name to "/generated/${file.name}")
+    }
+
+    call.respond(
+        ResponseBody(
+            stateCode = 200,
+            state = "success",
+            message = "Successfully generated midercode",
+            type = determineResponseType(result),
+            link = links
+        )
+    )
+}
+
+// 处理直接 API 响应
+private suspend fun PipelineContext<Unit, ApplicationCall>.handleDirectApiResponse(
+    result: ProduceCoreResult,
+    streamList: List<Pair<InputStream, String>>,
+    logger: Logger
+) {
+    val (stream, name) = streamList.first()
+    val contentType = determineContentType(name, result)
+
+    call.respondBytes(contentType = contentType) {
+        withContext(Dispatchers.IO) {
+            stream.readAllBytes()
+        }
+    }
+}
+
+// 处理文件请求
+private suspend fun PipelineContext<Unit, ApplicationCall>.handleFileRequest(
+    workspace: File,
+    logger: Logger
+) {
+    val hash = call.parameters["hash"]
+
+    if (hash.isNullOrBlank()) {
+        respondError(
+            HttpStatusCode.BadRequest,
+            400,
+            "filename is required",
+            logger
+        )
+        return
+    }
+
+    try {
+        call.respondFile(workspace, hash)
+    } catch (e: Throwable) {
+        respondError(
+            HttpStatusCode.BadGateway,
+            500,
+            "server error: ${e.message}",
+            logger,
+            e
+        )
+    }
+}
+
+// 确定文件扩展名
+private fun determineFileExtension(name: String, result: ProduceCoreResult): String {
+    return when {
+        '.' in name -> name.substringAfterLast('.')
+        else -> when {
+            result.isUploadMidi -> "mid"
+            result.isRenderingNotation -> "tmp"
+            else -> "mp3"
+        }
+    }
+}
+
+// 确定响应类型
+private fun determineResponseType(result: ProduceCoreResult): String {
+    return when {
+        result.isSing -> "sing"
+        result.isUploadMidi -> "midi"
+        result.isRenderingNotation -> "notation"
+        else -> "mp3"
+    }
+}
+
+// 确定内容类型
+private fun determineContentType(name: String, result: ProduceCoreResult): ContentType {
+    val extension = if ('.' in name) name.substringAfterLast('.') else null
+
+    return when (extension) {
+        "png" -> ContentType.Image.PNG
+        "mp3" -> ContentType.Audio.MPEG
+        "mid", "silk" -> ContentType.Audio.Any
+        null -> when {
+            result.isUploadMidi -> ContentType.Audio.Any
+            result.isRenderingNotation -> ContentType.Any
+            else -> ContentType.Audio.MPEG
+        }
+        else -> ContentType.Any
+    }
+}
+
+// 处理 /m 和 /md 接口的请求
+private suspend fun PipelineContext<Unit, ApplicationCall>.handleMidercodeRequest(
+    config: Configuration,
+    workspace: File,
+    logger: Logger,
+    defaultRaw: Boolean
+) {
+    // 获取查询参数
+    val cParam = call.parameters["c"]
+    val bParam = call.parameters["b"]
+    val rawParam = call.parameters["raw"]
+
+    // 解析 midercode
+    val midercode = when {
+        !cParam.isNullOrBlank() -> {
+            // c 参数存在，使用 URL 解码
+            try {
+                URLDecoder.decode(cParam, "UTF-8")
+            } catch (e: Exception) {
+                respondError(
+                    HttpStatusCode.BadRequest,
+                    400,
+                    "Invalid URL encoding in parameter 'c': ${e.message}",
+                    logger,
+                    e
+                )
+                return
+            }
+        }
+
+        !bParam.isNullOrBlank() -> {
+            // b 参数存在，使用 Base64 解码
+            try {
+                String(Base64.getDecoder().decode(bParam), Charsets.UTF_8)
+            } catch (e: Exception) {
+                respondError(
+                    HttpStatusCode.BadRequest,
+                    400,
+                    "Invalid Base64 encoding in parameter 'b': ${e.message}",
+                    logger,
+                    e
+                )
+                return
+            }
+        }
+
+        else -> {
+            respondError(
+                HttpStatusCode.BadRequest,
+                400,
+                "Either parameter 'c' or 'b' is required",
+                logger
+            )
+            return
+        }
+    }
+
+    // 解析 raw 参数
+    val isDirectApi = when {
+        rawParam != null -> rawParam.toBoolean()
+        else -> defaultRaw
+    }
+
+    // 创建 ServiceParameter
+    val parameter = ServiceParameter(midercode = midercode)
+
+    _handleApiRequest(parameter, config, isDirectApi, logger, workspace)
 }

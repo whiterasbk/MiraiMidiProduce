@@ -1,96 +1,842 @@
 <!doctype html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport"
-          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Mider code</title>
+    <title>Mider Code - 音乐代码生成器</title>
 
-    <link href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.2.2/css/bootstrap.css" rel="stylesheet">
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Axios -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.1.3/axios.js"></script>
 
     <style>
-        .enter-code {
-            padding-top: 2em;
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
         }
-        #show {
-            margin-top: 5em;
-            min-height: 200px;
+        .fade-in {
+            animation: fadeIn 0.3s ease-in;
+        }
+        .notation-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1rem;
+        }
+        /* 为透明PNG添加背景 */
+        .notation-image {
+            background: white;
+            background-image:
+                    linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                    linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                    linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                    linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
         }
     </style>
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 自定义滑块样式 -->
+    <style>
+        /* 音频进度条样式 */
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: white;
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+
+        input[type="range"]::-webkit-slider-runnable-track {
+            height: 8px;
+            border-radius: 4px;
+        }
+
+        input[type="range"]::-moz-range-track {
+            height: 8px;
+            border-radius: 4px;
+        }
+
+        /* 加载动画 */
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* 图片懒加载效果 */
+        img {
+            transition: opacity 0.3s ease-in;
+        }
+
+        img[loading="lazy"] {
+            opacity: 0;
+        }
+
+        img[loading="lazy"].loaded {
+            opacity: 1;
+        }
+
+        /* 响应式网格 */
+        @media (max-width: 768px) {
+            .notation-gallery {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        /* 滚动条美化 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+
+        /* 按钮点击效果 */
+        button:active {
+            transform: scale(0.95);
+        }
+
+        /* 卡片悬浮效果 */
+        .hover-lift {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .hover-lift:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+        }
+
+        /* 模态框动画 */
+        .modal-enter-active, .modal-leave-active {
+            transition: opacity 0.3s ease;
+        }
+
+        .modal-enter-from, .modal-leave-to {
+            opacity: 0;
+        }
+
+        /* 音频播放器波形效果 */
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .playing-indicator {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        /* 渐变文字效果 */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* 工具提示 */
+        [data-tooltip] {
+            position: relative;
+        }
+
+        [data-tooltip]::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%) translateY(-8px);
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            font-size: 12px;
+            border-radius: 4px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        [data-tooltip]:hover::after {
+            opacity: 1;
+        }
+
+        /* 加载骨架屏 */
+        .skeleton {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: loading 1.5s ease-in-out infinite;
+        }
+
+        @keyframes loading {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* 响应式字体 */
+        @media (max-width: 640px) {
+            h1 {
+                font-size: 2.5rem;
+            }
+
+            .text-lg {
+                font-size: 1rem;
+            }
+        }
+
+        /* 打印样式 */
+        @media print {
+            .no-print {
+                display: none !important;
+            }
+
+            body {
+                background: white;
+            }
+
+            .notation-gallery img {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
 </head>
-<body>
+<body class="bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen">
 
-    <div class="container" id="app">
+<div id="app" class="container mx-auto px-4 py-8 max-w-6xl">
 
-        <div class="row">
-            <div class="col-3"></div>
-            <div class="col">
-                <div id = "show">
-                    {{message}}
-                    <img style="max-height: 200px" :src="imgSrc">
-                </div>
-                <div class="enter-code">
-                    <label class="form-label">enter mider code</label>
-                    <label for="exampleFormControlTextarea1"></label>
-                    <textarea v-model="input" @keydown.enter="enter" class="form-control" id="exampleFormControlTextarea1" rows="3">
-                    </textarea>
-                </div>
-            </div>
-            <div class="col-3">
+    <!-- 头部 -->
+    <header class="text-center mb-12 fade-in">
+        <h1 class="text-5xl font-bold text-indigo-900 mb-3">
+            🎵 Mider Code
+        </h1>
+        <p class="text-gray-600 text-lg">将音符代码转换为美妙的音乐</p>
+    </header>
 
+    <!-- 主内容区 -->
+    <div class="bg-white rounded-2xl shadow-2xl p-8 mb-8">
+
+        <!-- 输入区域 -->
+        <div class="mb-8">
+            <label for="midercode-input" class="block text-lg font-semibold text-gray-700 mb-3">
+                输入 Mider Code
+            </label>
+            <textarea
+                    id="midercode-input"
+                    v-model="input"
+                    @keydown.ctrl.enter="generate"
+                    @keydown.meta.enter="generate"
+                    class="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 transition-all outline-none resize-none font-mono text-sm"
+                    rows="5"
+                    placeholder="例如: ggab 或 >g>12121&#10;按 Ctrl+Enter 生成"
+            ></textarea>
+
+            <div class="flex gap-3 mt-4">
+                <button
+                        @click="generate"
+                        :disabled="loading || !input.trim()"
+                        class="flex-1 bg-indigo-600 hover:bg-indigo-700 disabled:bg-gray-400 text-white font-semibold py-3 px-6 rounded-lg transition-all transform hover:scale-105 active:scale-95 disabled:transform-none disabled:cursor-not-allowed"
+                >
+                    <span v-if="!loading">🎼 生成音乐</span>
+                    <span v-else class="flex items-center justify-center">
+                        <svg class="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        生成中...
+                    </span>
+                </button>
+                <button
+                        @click="toggleAutoPlay"
+                        :class="[
+                            'px-6 py-3 rounded-lg font-semibold transition-all',
+                            autoPlay
+                                ? 'bg-green-500 hover:bg-green-600 text-white'
+                                : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+                        ]"
+                        :title="autoPlay ? '已开启自动播放' : '已关闭自动播放'"
+                >
+                    {{ autoPlay ? '🔊 自动播放' : '🔇 手动播放' }}
+                </button>
+                <button
+                        @click="clearAll"
+                        class="bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold py-3 px-6 rounded-lg transition-all"
+                >
+                    清空
+                </button>
             </div>
         </div>
 
+        <!-- 错误信息 -->
+        <div v-if="errorMessage" class="mb-6 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded fade-in">
+            <p class="font-semibold">❌ 错误</p>
+            <p class="text-sm mt-1">{{ errorMessage }}</p>
+        </div>
+
+        <!-- 成功信息 -->
+        <div v-if="successMessage" class="mb-6 p-4 bg-green-50 border-l-4 border-green-500 text-green-700 rounded fade-in">
+            <p class="font-semibold">✅ 成功</p>
+            <p class="text-sm mt-1">{{ successMessage }}</p>
+        </div>
+
+        <!-- 音频播放器 -->
+        <div v-if="audioSrc" class="mb-8 fade-in">
+            <div class="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl p-6 text-white">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold flex items-center">
+                        🎵 音频播放器
+                    </h3>
+                    <span class="text-sm bg-white/20 px-3 py-1 rounded-full">{{ audioType.toUpperCase() }}</span>
+                </div>
+
+                <div class="flex items-center gap-4">
+                    <button
+                            @click="togglePlay"
+                            class="bg-white text-indigo-600 hover:bg-indigo-50 w-14 h-14 rounded-full flex items-center justify-center transition-all transform hover:scale-110 active:scale-95"
+                    >
+                        <span v-if="!isPlaying" class="text-2xl">▶️</span>
+                        <span v-else class="text-2xl">⏸️</span>
+                    </button>
+
+                    <div class="flex-1">
+                        <input
+                                type="range"
+                                v-model.number="currentTime"
+                                @input="seekAudio"
+                                min="0"
+                                :max="duration || 0"
+                                step="0.1"
+                                class="w-full h-2 bg-white/30 rounded-lg appearance-none cursor-pointer"
+                        >
+                        <div class="flex justify-between text-xs mt-2 text-white/80">
+                            <span>{{ formatTime(currentTime) }}</span>
+                            <span>{{ formatTime(duration) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm">🔊</span>
+                        <input
+                                type="range"
+                                v-model.number="volume"
+                                @input="changeVolume"
+                                min="0"
+                                max="100"
+                                class="w-24 h-2 bg-white/30 rounded-lg appearance-none cursor-pointer"
+                        >
+                    </div>
+
+                    <a
+                            :href="audioSrc"
+                            download
+                            class="bg-white/20 hover:bg-white/30 px-4 py-2 rounded-lg transition-all text-sm"
+                    >
+                        📥 下载
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- MIDI 下载 -->
+        <div v-if="midiSrc" class="mb-8 fade-in">
+            <div class="bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl p-6 text-white">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-xl font-bold mb-2">🎹 MIDI 文件</h3>
+                        <p class="text-sm text-white/80">可在 DAW 或音乐软件中编辑</p>
+                    </div>
+                    <a
+                            :href="midiSrc"
+                            download
+                            class="bg-white text-purple-600 hover:bg-purple-50 px-6 py-3 rounded-lg font-semibold transition-all transform hover:scale-105"
+                    >
+                        📥 下载 MIDI
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- 乐谱展示 -->
+        <div v-if="notationImages.length > 0" class="fade-in">
+            <div class="mb-4 flex items-center justify-between">
+                <h3 class="text-2xl font-bold text-gray-800 flex items-center">
+                    🎼 生成的乐谱
+                </h3>
+                <div class="flex gap-2">
+                    <button
+                            @click="downloadAllNotations"
+                            class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm transition-all"
+                    >
+                        📥 下载全部
+                    </button>
+                    <button
+                            @click="toggleNotationView"
+                            class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg text-sm transition-all"
+                    >
+                        {{ notationViewMode === 'grid' ? '📋 列表视图' : '🔲 网格视图' }}
+                    </button>
+                </div>
+            </div>
+
+            <!-- 网格视图 -->
+            <div v-if="notationViewMode === 'grid'" class="notation-gallery">
+                <div
+                        v-for="(img, index) in notationImages"
+                        :key="index"
+                        class="bg-gray-50 rounded-lg overflow-hidden shadow-md hover:shadow-xl transition-all cursor-pointer transform hover:scale-105"
+                        @click="openNotationModal(index)"
+                >
+                    <div class="notation-image p-2">
+                        <img
+                                :src="img"
+                                :alt="'乐谱 ' + (index + 1)"
+                                class="w-full h-auto"
+                                loading="lazy"
+                        >
+                    </div>
+                    <div class="p-3 bg-white">
+                        <p class="text-sm text-gray-600 text-center">第 {{ index + 1}} 页</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 列表视图 -->
+            <div v-else class="space-y-4">
+                <div
+                        v-for="(img, index) in notationImages"
+                        :key="index"
+                        class="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-xl transition-all"
+                >
+                    <div class="bg-gray-100 px-4 py-2 flex items-center justify-between">
+                        <span class="font-semibold text-gray-700">第 {{ index + 1 }} 页</span>
+                        <a
+                                :href="img"
+                                download
+                                class="text-indigo-600 hover:text-indigo-800 text-sm"
+                        >
+                            📥 下载
+                        </a>
+                    </div>
+                    <div class="notation-image p-4">
+                        <img
+                                :src="img"
+                                :alt="'乐谱 ' + (index + 1)"
+                                class="w-full h-auto cursor-pointer"
+                                @click="openNotationModal(index)"
+                                loading="lazy"
+                        >
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 空状态 -->
+        <div v-if="!audioSrc && !midiSrc && notationImages.length === 0 && !loading && !errorMessage" class="text-center py-16">
+            <div class="text-6xl mb-4">🎵</div>
+            <p class="text-gray-500 text-lg">输入 Mider Code 开始创作音乐</p>
+            <p class="text-gray-400 text-sm mt-2">支持生成 MP3、MIDI 和乐谱</p>
+        </div>
     </div>
 
-    <script src="https://cdn.bootcdn.net/ajax/libs/axios/1.1.3/axios.js"></script>
+    <!-- 使用说明 -->
+    <div class="bg-white rounded-2xl shadow-lg p-6 fade-in">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">📖 使用说明</h3>
+        <div class="grid md:grid-cols-3 gap-4 text-sm text-gray-600">
+            <div class="bg-blue-50 p-4 rounded-lg">
+                <p class="font-semibold text-blue-900 mb-2">🎹 基础音符</p>
+                <p>使用字母表示音符：c d e f g a b</p>
+                <p class="text-xs mt-1 text-gray-500">例如: cdefgab</p>
+            </div>
+            <div class="bg-green-50 p-4 rounded-lg">
+                <p class="font-semibold text-green-900 mb-2">⏱️ 节奏控制</p>
+                <p>使用数字表示时值：1 2 4 8</p>
+                <p class="text-xs mt-1 text-gray-500">例如: c1d2e4</p>
+            </div>
+            <div class="bg-purple-50 p-4 rounded-lg">
+                <p class="font-semibold text-purple-900 mb-2">🎚️ 音高调整</p>
+                <p>使用 > 和 < 调整八度</p>
+                <p class="text-xs mt-1 text-gray-500">例如: &gt;c&lt;g</p>
+            </div>
+        </div>
+    </div>
 
-    <script>
-        const { createApp } = Vue
+    <!-- 乐谱模态框 -->
+    <div
+            v-if="showNotationModal"
+            @click="closeNotationModal"
+            class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 fade-in"
+    >
+        <div class="relative max-w-6xl max-h-[90vh] bg-white rounded-lg overflow-hidden" @click.stop>
+            <div class="absolute top-4 right-4 z-10 flex gap-2">
+                <button
+                        @click="previousNotation"
+                        :disabled="currentNotationIndex === 0"
+                        class="bg-white/90 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 w-10 h-10 rounded-full shadow-lg transition-all"
+                >
+                    ◀
+                </button>
+                <button
+                        @click="nextNotation"
+                        :disabled="currentNotationIndex === notationImages.length - 1"
+                        class="bg-white/90 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed text-gray-800 w-10 h-10 rounded-full shadow-lg transition-all"
+                >
+                    ▶
+                </button>
+                <button
+                        @click="closeNotationModal"
+                        class="bg-white/90 hover:bg-white text-gray-800 w-10 h-10 rounded-full shadow-lg transition-all"
+                >
+                    ✕
+                </button>
+            </div>
+            <div class="overflow-auto max-h-[90vh] notation-image p-4">
+                <img
+                        :src="notationImages[currentNotationIndex]"
+                        :alt="'乐谱 ' + (currentNotationIndex + 1)"
+                        class="w-full h-auto"
+                >
+            </div>
+            <div class="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-white/90 px-4 py-2 rounded-full shadow-lg">
+                <span class="text-sm font-semibold text-gray-800">
+                    {{ currentNotationIndex + 1 }} / {{ notationImages.length }}
+                </span>
+            </div>
+        </div>
+    </div>
+</div>
 
-        createApp({
-            data() {
-                return {
-                    message: '',
-                    input: '',
-                    show : "show show need",
-                    audio_src: "",
-                    imgSrc: ""
+<script>
+    const { createApp } = Vue
+
+    createApp({
+        data() {
+            return {
+                input: '',
+                loading: false,
+                errorMessage: '',
+                successMessage: '',
+                audioSrc: '',
+                audioType: 'mp3',
+                midiSrc: '',
+                notationImages: [],
+                audio: null,
+                isPlaying: false,
+                currentTime: 0,
+                duration: 0,
+                volume: 80,
+                notationViewMode: 'grid',
+                showNotationModal: false,
+                currentNotationIndex: 0,
+                autoPlay: false
+            }
+        },
+        methods: {
+            async generate() {
+                if (!this.input.trim()) return;
+
+                this.loading = true;
+                this.errorMessage = '';
+                this.successMessage = '';
+                this.clearResults();
+
+                try {
+                    const response = await axios.post('/api', {
+                        midercode: this.input.trim()
+                    });
+
+                    const data = response.data;
+
+                    if (data.state === 'success') {
+                        this.handleSuccess(data);
+                    } else {
+                        this.errorMessage = data.message || '生成失败，请检查代码格式';
+                    }
+                } catch (error) {
+                    console.error('生成错误:', error);
+                    this.errorMessage = error.response?.data?.message || '网络错误，请稍后重试';
+                } finally {
+                    this.loading = false;
                 }
             },
-            methods: {
 
-                enter() {
-                    let code = this.input
-                    let thisRef = this
-                    axios.post('/api', {
-                        midercode: code
-                    }).then(function (response) {
-                        let data = response.data;
-                        if (data.status === "success") {
-                            // console.log(data)
-                            thisRef.message = ""
-                            if (data.type === "mp3") {
-                                let audio = new Audio()
-                                audio.src = data.links[0].stream
-                                audio.play();
-                            } else if (data.type === "notation" || data.type === "png") {
-                                for (let i in data.links[0]) {
-                                    thisRef.imgSrc = data.links[0][i]
-                                    // console.log(data.links[0][i])
-                                }
+            handleSuccess(data) {
+                this.successMessage = data.message || '生成成功！';
+
+                // 处理返回的链接
+                if (data.link && data.link.length > 0) {
+                    data.link.forEach(linkObj => {
+                        for (let [name, url] of Object.entries(linkObj)) {
+                            const lowerName = name.toLowerCase();
+
+                            // 判断文件类型
+                            if (lowerName.includes('mp3') || data.type === 'mp3') {
+                                this.audioSrc = url;
+                                this.audioType = 'mp3';
+                                this.initAudio();
+                            } else if (lowerName.includes('mid') || lowerName.includes('midi')) {
+                                this.midiSrc = url;
+                            } else if (data.type === 'notation' || data.type === 'png' || lowerName.includes('png')) {
+                                this.notationImages.push(url);
                             }
                         }
-                        else {
-                            thisRef.message = data.message
-                        }
-                    })
+                    });
+                }
+
+                // 3秒后清除成功消息
+                setTimeout(() => {
+                    this.successMessage = '';
+                }, 3000);
+            },
+
+            initAudio() {
+                if (this.audio) {
+                    this.audio.pause();
+                    this.audio = null;
+                }
+
+                this.audio = new Audio(this.audioSrc);
+                this.audio.volume = this.volume / 100;
+
+                // 监听时间更新
+                this.audio.addEventListener('timeupdate', () => {
+                    this.currentTime = this.audio.currentTime;
+                });
+
+                // 监听加载完成
+                this.audio.addEventListener('loadedmetadata', () => {
+                    this.duration = this.audio.duration;
+                    this.currentTime = 0;  // 重置进度条
+
+                    // 如果开启了自动播放，则自动播放
+                    if (this.autoPlay) {
+                        this.audio.play().then(() => {
+                            this.isPlaying = true;
+                        }).catch(e => {
+                            console.error('自动播放错误:', e);
+                            this.errorMessage = '自动播放失败，请手动播放';
+                        });
+                    }
+                });
+
+                // 监听播放结束
+                this.audio.addEventListener('ended', () => {
+                    this.isPlaying = false;
+                    this.currentTime = 0;
+                });
+
+                // 监听错误
+                this.audio.addEventListener('error', (e) => {
+                    console.error('音频加载错误:', e);
+                    this.errorMessage = '音频加载失败';
+                    this.isPlaying = false;
+                });
+            },
+
+            togglePlay() {
+                if (!this.audio) return;
+
+                if (this.isPlaying) {
+                    this.audio.pause();
+                    this.isPlaying = false;
+                } else {
+                    this.audio.play().then(() => {
+                        this.isPlaying = true;
+                    }).catch(e => {
+                        console.error('播放错误:', e);
+                        this.errorMessage = '播放失败';
+                    });
+                }
+            },
+
+            seekAudio() {
+                if (this.audio && !isNaN(this.currentTime)) {
+                    this.audio.currentTime = this.currentTime;
+                }
+            },
+
+            changeVolume() {
+                if (this.audio) {
+                    this.audio.volume = this.volume / 100;
+                }
+            },
+
+            formatTime(seconds) {
+                if (!seconds || isNaN(seconds)) return '0:00';
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins}:${secs.toString().padStart(2, '0')}`;
+            },
+
+            clearResults() {
+                // 停止音频
+                if (this.audio) {
+                    this.audio.pause();
+                    this.audio = null;
+                }
+
+                this.audioSrc = '';
+                this.midiSrc = '';
+                this.notationImages = [];
+                this.isPlaying = false;
+                this.currentTime = 0;
+                this.duration = 0;
+            },
+
+            clearAll() {
+                this.input = '';
+                this.errorMessage = '';
+                this.successMessage = '';
+                this.clearResults();
+            },
+
+            toggleNotationView() {
+                this.notationViewMode = this.notationViewMode === 'grid' ? 'list' : 'grid';
+            },
+
+            toggleAutoPlay() {
+                this.autoPlay = !this.autoPlay;
+                // 保存到本地存储
+                localStorage.setItem('miderAutoPlay', this.autoPlay);
+            },
+
+            openNotationModal(index) {
+                this.currentNotationIndex = index;
+                this.showNotationModal = true;
+                document.body.style.overflow = 'hidden';
+            },
+
+            closeNotationModal() {
+                this.showNotationModal = false;
+                document.body.style.overflow = 'auto';
+            },
+
+            previousNotation() {
+                if (this.currentNotationIndex > 0) {
+                    this.currentNotationIndex--;
+                }
+            },
+
+            nextNotation() {
+                if (this.currentNotationIndex < this.notationImages.length - 1) {
+                    this.currentNotationIndex++;
+                }
+            },
+
+            async downloadAllNotations() {
+                for (let i = 0; i < this.notationImages.length; i++) {
+                    const link = document.createElement('a');
+                    link.href = this.notationImages[i];
+                    link.download = `notation-page-${i + 1}.png`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+
+                    // 延迟下载，避免浏览器阻止
+                    await new Promise(resolve => setTimeout(resolve, 300));
                 }
             }
-        }).mount('#app')
-    </script>
+        },
+
+        mounted() {
+            // 从本地存储读取自动播放设置
+            const savedAutoPlay = localStorage.getItem('miderAutoPlay');
+            if (savedAutoPlay !== null) {
+                this.autoPlay = savedAutoPlay === 'true';
+            }
+
+            // 添加键盘快捷键
+            document.addEventListener('keydown', (e) => {
+                // Ctrl/Cmd + Enter 生成
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    this.generate();
+                }
+
+                // 空格键播放/暂停
+                if (e.code === 'Space' && this.audioSrc && !e.target.matches('textarea')) {
+                    e.preventDefault();
+                    this.togglePlay();
+                }
+
+                // ESC 关闭模态框
+                if (e.key === 'Escape' && this.showNotationModal) {
+                    this.closeNotationModal();
+                }
+
+                // 左右箭头切换乐谱
+                if (this.showNotationModal) {
+                    if (e.key === 'ArrowLeft') {
+                        this.previousNotation();
+                    } else if (e.key === 'ArrowRight') {
+                        this.nextNotation();
+                    }
+                }
+            });
+        },
+
+        beforeUnmount() {
+            // 清理音频资源
+            if (this.audio) {
+                this.audio.pause();
+                this.audio = null;
+            }
+            document.body.style.overflow = 'auto';
+        }
+    }).mount('#app')
+</script>
+
+
+
+<!-- 页脚 -->
+<footer class="text-center py-8 text-gray-500 text-sm">
+    <div class="container mx-auto px-4">
+        <p class="mb-2">
+            <span class="font-semibold text-gray-700">Mider Code</span> - 让音乐创作更简单
+        </p>
+        <p class="text-xs">
+            快捷键:
+            <kbd class="px-2 py-1 bg-gray-200 rounded text-gray-700 mx-1">Ctrl+Enter</kbd> 生成 |
+            <kbd class="px-2 py-1 bg-gray-200 rounded text-gray-700 mx-1">Space</kbd> 播放/暂停 |
+            <kbd class="px-2 py-1 bg-gray-200 rounded text-gray-700 mx-1">ESC</kbd> 关闭
+        </p>
+        <div class="mt-4 flex justify-center gap-4 text-xs">
+            <a href="#" class="text-indigo-600 hover:text-indigo-800 transition-colors">使用文档</a>
+            <span class="text-gray-300">|</span>
+            <a href="#" class="text-indigo-600 hover:text-indigo-800 transition-colors">API 接口</a>
+            <span class="text-gray-300">|</span>
+            <a href="#" class="text-indigo-600 hover:text-indigo-800 transition-colors">反馈建议</a>
+        </div>
+    </div>
+</footer>
 
 </body>
 </html>

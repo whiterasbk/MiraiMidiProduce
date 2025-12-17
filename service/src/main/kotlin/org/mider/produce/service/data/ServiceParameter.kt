@@ -9,7 +9,6 @@ data class ServiceParameter(
     var sinsySynAlpha: Float = 0.55f,
     var sinsyF0shift: Int = 0,
     var sinsyVibpower: Int = 1,
-    // var sinsyLink: String = "http://sinsy.sp.nitech.ac.jp",
     var recursionLimit: Int = 50,
     var silkBitsRate: Int = 24000,
     var cache: Boolean = false,
@@ -23,7 +22,6 @@ data class ServiceParameter(
         coreCfg.sinsySynAlpha = sinsySynAlpha
         coreCfg.sinsyF0shift = sinsyF0shift
         coreCfg.sinsyVibpower = sinsyVibpower
-        // coreCfg.sinsyLink = sinsyLink
         coreCfg.recursionLimit = recursionLimit
         coreCfg.silkBitsRate = silkBitsRate
         coreCfg.cache = cache
